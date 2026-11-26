@@ -58,7 +58,7 @@ canvas{max-width:100%;max-height:56vh;background:#000;border-radius:6px}
 <aside>
 <section><h2>Media</h2><label class="btn" for="file" tabindex="0">Import video or photo</label><input id="file" type="file" accept="video/*,image/*" multiple hidden><div id="media"></div></section>
 <section><h2>Add to timeline</h2><button id="addT">Add text</button><button id="addV">Add Khmer voice + caption</button><label class="btn" for="aud" tabindex="0">Import audio (MP3/WAV voice or music)</label><input id="aud" type="file" accept="audio/*" multiple hidden><p class="note" id="vstat"></p></section>
-<section id="sst"><h2>Subtitles (.srt)</h2><label class="btn" for="srt" tabindex="0">Import .srt or .vtt</label><input id="srt" type="file" accept=".srt,.vtt,text/plain" hidden><button id="srtx">Export .srt</button><label class="f">Size (all subtitles)<input data-s="size" type="number" value="56" min="20" max="200"></label><label class="f">Height on screen (%)<input data-s="y" type="number" value="88" min="5" max="95"></label><label class="f">Colour<input data-s="color" type="color" value="#ffffff"></label><label class="f">Voice for subtitles<select id="gv"></select></label><button id="vall">Make Khmer voice for all subtitles</button><button id="vclr">Remove voices made from subtitles</button><button id="vaz" class="pri">Generate Sreymom voice (Azure)</button><label class="f"><input id="spk" type="checkbox" checked style="display:inline;width:auto;margin:0 6px 0 0">Speak a subtitle when I click it</label><button id="srtc">Remove all subtitles</button><p class="note" id="sstat">Imported cues appear on the Text track. Voice captions are included in the export.</p></section>
+<section id="sst"><h2>Subtitles (.srt)</h2><label class="btn" for="srt" tabindex="0">Import .srt or .vtt</label><input id="srt" type="file" accept=".srt,.vtt,text/plain" hidden><button id="srtx">Export .srt</button><label class="f">Size (all subtitles)<input data-s="size" type="number" value="56" min="20" max="200"></label><label class="f">Height on screen (%)<input data-s="y" type="number" value="88" min="5" max="95"></label><label class="f">Colour<input data-s="color" type="color" value="#ffffff"></label><label class="f">Voice for subtitles<select id="gv"><option value="">Sreymom (Azure) - km-KH-SreymomNeural</option></select></label><button id="vall">Make Khmer voice for all subtitles</button><button id="vclr">Remove voices made from subtitles</button><button id="vaz" class="pri">Generate Sreymom voice (Azure)</button><button id="vkey">Forget saved Azure key</button><label class="f"><input id="spk" type="checkbox" checked style="display:inline;width:auto;margin:0 6px 0 0">Speak a subtitle when I click it</label><button id="srtc">Remove all subtitles</button><p class="note" id="sstat">Imported cues appear on the Text track. Voice captions are included in the export.</p></section>
 <section><h2>Selected item</h2><div id="ib"><p class="note">Select a clip, text or voice on the timeline to edit it.</p></div></section>
 </aside>
 <div class="stage"><canvas id="cv" width="1280" height="720"></canvas>
@@ -79,7 +79,7 @@ const km=()=>S.vl.find(v=>/sreymom/i.test(v.name))||S.vl.find(v=>/^km/i.test(v.l
 function layout(){let t=0;S.clips.forEach(c=>{c.start=t;t+=c.dur})}
 function loadVoices(){S.vl=speechSynthesis.getVoices();const k=km();
  $('#vstat').textContent=k?'Khmer voice ready: '+k.name+'.':'No Khmer voice found. Open this page in Microsoft Edge to get Sreymom (the Clipchamp voice), or add Khmer in your system speech settings.';if(S.sel)inspect();fillGv()}
-if('speechSynthesis' in window){speechSynthesis.onvoiceschanged=loadVoices;loadVoices()}else $('#vstat').textContent='This browser has no speech synthesis. Try Chrome or Edge.';
+$('#vstat').textContent='Voice: Sreymom (Azure) only. Click a subtitle to hear it, or press Generate Sreymom voice.';
 
 $('#file').onchange=e=>{[...e.target.files].forEach(addMedia);e.target.value=''};
 $('#file+*,label[for=file]').onkeydown=e=>{if(e.key==='Enter')$('#file').click()};
@@ -95,8 +95,19 @@ $('#addT').onclick=()=>{const t={id:++uid,text:'សួស្តី',start:+S.t.t
 $('#addV').onclick=()=>{const txt='សួស្តី សូមស្វាគមន៍មកកាន់វីដេអូរបស់ខ្ញុំ';const v={id:++uid,text:txt,start:+S.t.toFixed(1),rate:1,voice:'',cap:true};
  S.voices.push(v);S.texts.push({id:++uid,text:txt,start:v.start,dur:+vd(v).toFixed(1),size:60,color:'#ffe08a',y:86,link:v.id});S.sel={k:'voice',id:v.id};all()};
 
-function say(v,q){if(!('speechSynthesis' in window))return;if(!q)speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(v.text);
- const vo=S.vl.find(x=>x.voiceURI===v.voice)||km();if(vo)u.voice=vo;u.lang=vo?vo.lang:'km-KH';u.rate=v.rate;speechSynthesis.speak(u)}
+let sayAudio=null;const sayCache=new Map();
+async function azCreds(){let up=false,need=false;try{const h=await(await fetch('/api/health')).json();up=h.ok;need=h.need}catch(e){}
+ let pw='',ak='',ar='';try{pw=localStorage.getItem('kc_pass')||'';ak=localStorage.getItem('kc_azkey')||'';ar=localStorage.getItem('kc_azreg')||''}catch(e){}
+ if(up){if(need&&!pw){pw=prompt('Enter the app password you set on the server')||'';try{localStorage.setItem('kc_pass',pw)}catch(e){}}return{up,pw}}
+ if(!ak||!ar){ak=(prompt('Paste your Azure Speech KEY 1. It is saved only on this device.')||'').trim();ar=(prompt('Azure region, for example southeastasia')||'').trim().toLowerCase();if(!ak||!ar)return null;try{localStorage.setItem('kc_azkey',ak);localStorage.setItem('kc_azreg',ar)}catch(e){}}
+ return{up:false,ak,ar}}
+async function azFetch(v,c){const r=c.up?await fetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json','x-pass':c.pw},body:JSON.stringify({text:v.text,rate:v.rate})}):await fetch('https://'+c.ar+'.tts.speech.microsoft.com/cognitiveservices/v1',{method:'POST',headers:{'Ocp-Apim-Subscription-Key':c.ak,'Content-Type':'application/ssml+xml','X-Microsoft-OutputFormat':'audio-24khz-96kbitrate-mono-mp3'},body:ssml(v)});
+ if(!r.ok){if(r.status===401)try{localStorage.removeItem('kc_pass');localStorage.removeItem('kc_azkey')}catch(x){}throw new Error(r.status+' '+await r.text())}return r.blob()}
+async function say(v){const t=(v.text||'').trim();if(!t)return;if(sayAudio){sayAudio.pause();sayAudio=null}
+ const key=t+'|'+v.rate;$('#sstat').textContent='Sreymom is speaking...';
+ try{let b=sayCache.get(key);if(!b){const c=await azCreds();if(!c){$('#sstat').textContent='No Azure key entered.';return}b=await azFetch(v,c);sayCache.set(key,b)}
+  sayAudio=new Audio(URL.createObjectURL(b));await sayAudio.play();$('#sstat').textContent='Sreymom voice (Azure).'}
+ catch(e){$('#sstat').textContent=e instanceof TypeError?'Could not reach Azure from this browser. Check your internet, region and key, or use the server version.':'Azure error: '+e.message}}
 
 function inspect(){const it=get(),b=$('#ib');if(!it){b.innerHTML='<p class="note">Select a clip, text or voice on the timeline to edit it.</p>';return}
  const k=S.sel.k,F=(l,key,type='number',extra='')=>`<label class="f">${l}<input data-k="${key}" type="${type}" value="${esc(it[key])}" ${extra}></label>`;
@@ -108,7 +119,7 @@ function inspect(){const it=get(),b=$('#ib');if(!it){b.innerHTML='<p class="note
  if(k==='voice'){const kv=S.vl.filter(v=>/^km/i.test(v.lang)),ot=S.vl.filter(v=>!/^km/i.test(v.lang));
   const op=a=>a.map(v=>`<option value="${esc(v.voiceURI)}" ${v.voiceURI===it.voice?'selected':''}>${esc(v.name)} (${esc(v.lang)})</option>`).join('');
   h=T('Khmer text to speak','text')+F('Start (s)','start','number','step="0.1" min="0"')+F('Speed','rate','number','step="0.1" min="0.5" max="1.5"')+
-  `<label class="f">Voice<select data-k="voice"><option value="">Automatic (Khmer if available)</option>${kv.length?`<optgroup label="Khmer">${op(kv)}</optgroup>`:''}<optgroup label="Other languages">${op(ot)}</optgroup></select></label><div class="row"><button data-a="say">Listen</button></div>`}
+  `<p class="note">Voice: Sreymom (Azure) - km-KH-SreymomNeural</p><div class="row"><button data-a="say">Listen</button></div>`}
  b.innerHTML=h+`<div class="row" style="margin-top:6px"><button data-a="del">Delete</button></div>`}
 $('#ib').addEventListener('input',e=>{const it=get(),k=e.target.dataset.k;if(!it||!k)return;const n=e.target.type==='number';it[k]=n?parseFloat(e.target.value)||0:e.target.value;
  if(S.sel.k==='clip'&&k==='dur'&&it.type==='video')it.dur=Math.min(it.dur,it.max-it.in);
@@ -162,31 +173,37 @@ $('#tl').addEventListener('wheel',e=>{if(e.ctrlKey||e.metaKey){e.preventDefault(
 const rateFor=(txt,dur)=>Math.min(1.6,Math.max(.8,Math.round([...txt].length/(12*Math.max(.3,dur))*10)/10));
 function mkVoice(t){let v=S.voices.find(x=>x.from===t.id);if(v){v.text=t.text;v.start=t.start;v.rate=rateFor(t.text,t.dur);return v}
  v={id:++uid,text:t.text,start:t.start,rate:rateFor(t.text,t.dur),voice:$('#gv').value,from:t.id};S.voices.push(v);return v}
-function fillGv(){const g=$('#gv');if(!g)return;const cur=g.value;g.innerHTML='';const add=(l,v)=>{const o=document.createElement('option');o.value=v;o.textContent=l;g.appendChild(o)};
+function fillGv(){return;const g=$('#gv');if(!g)return;const cur=g.value;g.innerHTML='';const add=(l,v)=>{const o=document.createElement('option');o.value=v;o.textContent=l;g.appendChild(o)};
  add('Automatic (Sreymom or any Khmer voice)','');S.vl.slice().sort((a,b)=>(/sreymom/i.test(b.name)-/sreymom/i.test(a.name))||(/^km/i.test(b.lang)-/^km/i.test(a.lang))).forEach(v=>add(v.name+' ('+v.lang+')',v.voiceURI));g.value=cur}
 $('#gv').onchange=e=>{S.voices.forEach(v=>v.voice=e.target.value);inspect()};
 $('#vall').onclick=()=>{const L=S.texts.filter(t=>t.sub&&!t.link&&t.text.trim());if(!L.length){$('#sstat').textContent='No subtitles yet. Import an .srt file or add text first.';return}
- L.forEach(mkVoice);S.sel=null;$('#sstat').textContent='Made '+L.length+' Khmer voices, one for each subtitle. Press Play to hear them.';all()};
+ L.forEach(mkVoice);S.sel=null;$('#sstat').textContent='Made '+L.length+' Khmer voices, one for each subtitle. Now press Generate Sreymom voice (Azure).';all()};
 $('#vclr').onclick=()=>{S.aud.filter(a=>a.from).forEach(a=>a.el.pause());S.aud=S.aud.filter(a=>!a.from);const n=S.voices.filter(v=>v.from).length;S.voices=S.voices.filter(v=>!v.from);S.sel=null;$('#sstat').textContent='Removed '+n+' voices made from subtitles.';all()};
 fillGv();
 $('#aud').onchange=e=>{[...e.target.files].forEach(f=>{const url=URL.createObjectURL(f),el=new Audio();el.preload='metadata';el.onloadedmetadata=()=>{const a={id:++uid,name:f.name,el,url,start:+S.t.toFixed(1),dur:el.duration,vol:1};S.aud.push(a);S.sel={k:'audio',id:a.id};all()};el.src=url});e.target.value=''};
 $('label[for=aud]').onkeydown=e=>{if(e.key==='Enter')$('#aud').click()};
 function syncAud(){S.aud.forEach(a=>{const lt=S.t-a.start,on=lt>=0&&lt<a.dur;a.el.volume=Math.min(1,Math.max(0,a.vol));
  if(S.playing&&on){if(Math.abs(a.el.currentTime-lt)>.4)a.el.currentTime=lt;if(a.el.paused)a.el.play().catch(()=>{})}else if(!a.el.paused)a.el.pause()})}
+const ssml=v=>{const x=t=>t.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c])),p=Math.max(-50,Math.min(60,Math.round(((+v.rate||1)-1)*100)));
+ return '<speak version="1.0" xml:lang="km-KH" xmlns="http://www.w3.org/2001/10/synthesis"><voice name="km-KH-SreymomNeural"><prosody rate="'+(p>=0?'+':'')+p+'%">'+x(v.text)+'</prosody></voice></speak>'};
+$('#vkey').onclick=()=>{try{localStorage.removeItem('kc_azkey');localStorage.removeItem('kc_azreg');localStorage.removeItem('kc_pass')}catch(e){}$('#sstat').textContent='Saved Azure key removed from this device.'};
 $('#vaz').onclick=async()=>{const V=S.voices.filter(v=>!v.az&&v.text.trim());
  if(!V.length){$('#sstat').textContent='No new voices. Use "Make Khmer voice for all subtitles" first.';return}
  let up=false,need=false;try{const h=await(await fetch('/api/health')).json();up=h.ok;need=h.need}catch(e){}
- if(!up){$('#sstat').textContent='Azure is not connected. Run this app with server.js and set your Azure key (see README.md).';return}
+ let ak='',ar='';
+ if(!up){try{ak=localStorage.getItem('kc_azkey')||'';ar=localStorage.getItem('kc_azreg')||''}catch(e){}
+  if(!ak||!ar){ak=(prompt('Paste your Azure Speech KEY 1. It is saved only on this device.')||'').trim();ar=(prompt('Azure region, for example southeastasia')||'').trim().toLowerCase();
+   if(!ak||!ar){$('#sstat').textContent='No Azure key entered.';return}try{localStorage.setItem('kc_azkey',ak);localStorage.setItem('kc_azreg',ar)}catch(e){}}}
  let pw='';try{pw=localStorage.getItem('kc_pass')||''}catch(e){}
  if(need&&!pw){pw=prompt('Enter the app password you set on the server')||'';try{localStorage.setItem('kc_pass',pw)}catch(e){}}
  let n=0,done=true;
  for(const v of V){$('#sstat').textContent='Generating Sreymom voice '+(++n)+' / '+V.length+'...';
-  try{const r=await fetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json','x-pass':pw},body:JSON.stringify({text:v.text,rate:v.rate})});
-   if(!r.ok)throw new Error(await r.text());
+  try{const r=up?await fetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json','x-pass':pw},body:JSON.stringify({text:v.text,rate:v.rate})}):await fetch('https://'+ar+'.tts.speech.microsoft.com/cognitiveservices/v1',{method:'POST',headers:{'Ocp-Apim-Subscription-Key':ak,'Content-Type':'application/ssml+xml','X-Microsoft-OutputFormat':'audio-24khz-96kbitrate-mono-mp3'},body:ssml(v)});
+   if(!r.ok)throw new Error(r.status+' '+await r.text());
    const url=URL.createObjectURL(await r.blob()),el=new Audio();
    await new Promise((res,rej)=>{el.onloadedmetadata=res;el.onerror=rej;el.src=url});
    S.aud.push({id:++uid,name:'Sreymom: '+v.text.slice(0,20),el,url,start:v.start,dur:el.duration,vol:1,from:v.id});v.az=true}
-  catch(e){if(/401/.test(e.message))try{localStorage.removeItem('kc_pass')}catch(x){}$('#sstat').textContent='Azure error: '+e.message;done=false;break}}
+  catch(e){if(/401/.test(e.message))try{localStorage.removeItem('kc_pass');localStorage.removeItem('kc_azkey')}catch(x){}$('#sstat').textContent=e instanceof TypeError?'Could not reach Azure from this browser. Check your internet, region and key, or use the server version.':'Azure error: '+e.message;done=false;break}}
  if(done)$('#sstat').textContent='Done. Sreymom voice is on the Audio track and will be in the exported video.';all()};
 function all(){media();timeline();inspect()}
 
@@ -211,7 +228,7 @@ function draw(){cx.fillStyle='#000';cx.fillRect(0,0,cv.width,cv.height);
 
 let last=performance.now();
 function tick(ts){const dt=Math.min(.1,(ts-last)/1000);last=ts;
- if(S.playing){S.t+=dt;S.voices.forEach(v=>{if(!spoken.has(v.id)&&!v.az&&S.t>=v.start&&S.t<v.start+1){spoken.add(v.id);say(v,true)}});
+ if(S.playing){S.t+=dt;
   if(S.t>=total()){S.t=total();pause();if(rec)rec.stop()}}
  draw();syncAud();const ph=$('#ph');if(ph){const x=LEFT+S.t*S.pps;ph.style.left=x+'px';if(S.playing){const c=$('#tl');if(x>c.scrollLeft+c.clientWidth-40||x<c.scrollLeft)c.scrollLeft=x-60}}$('#time').textContent=fmt(S.t)+' / '+fmt(total());
  if(rec)$('#exp').textContent='Stop export ('+Math.round(S.t/total()*100)+'%)';requestAnimationFrame(tick)}
@@ -228,61 +245,3 @@ $('#exp').onclick=()=>{if(rec){pause();rec.stop();return}if(total()>300&&!confir
  rec.start();play()};
 all();requestAnimationFrame(tick);if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
 </script></body></html>
-<!DOCTYPE html>
-<html lang="km">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Khmer Text-to-Speech (Sreymom)</title>
-  <style>
-    body { font-family: 'Khmer OS Battambang', Arial, sans-serif; padding: 20px; max-width: 500px; margin: auto; }
-    textarea { width: 100%; height: 100px; padding: 10px; font-size: 16px; margin-bottom: 10px; }
-    button { padding: 10px 20px; font-size: 16px; background-color: #0078D4; color: white; border: none; border-radius: 5px; cursor: pointer; }
-    button:hover { background-color: #005a9e; }
-  </style>
-</head>
-<body>
-
-  <h2>កម្មវិធីអានអក្សរខ្មែរ (សំឡេង Sreymom)</h2>
-  
-  <textarea id="text-input" placeholder="សូមវាយអក្សរខ្មែរនៅទីនេះ...">សួស្តី! ស្វាគមន៍មកកាន់គេហទំព័ររបស់ខ្ញុំ។</textarea>
-  <br>
-  <button onclick="speakKhmer()">🔊 ចុចដើម្បីស្តាប់</button>
-
-  <script>
-    let voices = [];
-
-    // ផ្ទុកបញ្ជីសំឡេងពី Browser
-    function loadVoices() {
-      voices = window.speechSynthesis.getVoices();
-    }
-    window.speechSynthesis.onvoiceschanged = loadVoices;
-    loadVoices();
-
-    function speakKhmer() {
-      const text = document.getElementById("text-input").value;
-      if (!text) return;
-
-      // បញ្ឈប់សំឡេងចាស់ប្រសិនបើកំពុងនិយាយ
-      window.speechSynthesis.cancel();
-
-      const utterance = new SpeechSynthesisUtterance(text);
-      
-      // ស្វែងរកសំឡេង km-KH-SreymomNeural ឬសំឡេងខ្មែរផ្សេងទៀត
-      const sreymomVoice = voices.find(v => 
-        v.name.includes("Sreymom") || v.lang === "km-KH" || v.lang === "km"
-      );
-
-      if (sreymomVoice) {
-        utterance.voice = sreymomVoice;
-      }
-      
-      utterance.lang = "km-KH";
-      utterance.rate = 1.0; // ល្បឿននិយាយ (0.5 ដល់ 2.0)
-      window.speechSynthesis.speak(utterance);
-    }
-  </script>
-
-</body>
-</html>
-
