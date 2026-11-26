@@ -228,3 +228,61 @@ $('#exp').onclick=()=>{if(rec){pause();rec.stop();return}if(total()>300&&!confir
  rec.start();play()};
 all();requestAnimationFrame(tick);if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
 </script></body></html>
+<!DOCTYPE html>
+<html lang="km">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Khmer Text-to-Speech (Sreymom)</title>
+  <style>
+    body { font-family: 'Khmer OS Battambang', Arial, sans-serif; padding: 20px; max-width: 500px; margin: auto; }
+    textarea { width: 100%; height: 100px; padding: 10px; font-size: 16px; margin-bottom: 10px; }
+    button { padding: 10px 20px; font-size: 16px; background-color: #0078D4; color: white; border: none; border-radius: 5px; cursor: pointer; }
+    button:hover { background-color: #005a9e; }
+  </style>
+</head>
+<body>
+
+  <h2>កម្មវិធីអានអក្សរខ្មែរ (សំឡេង Sreymom)</h2>
+  
+  <textarea id="text-input" placeholder="សូមវាយអក្សរខ្មែរនៅទីនេះ...">សួស្តី! ស្វាគមន៍មកកាន់គេហទំព័ររបស់ខ្ញុំ។</textarea>
+  <br>
+  <button onclick="speakKhmer()">🔊 ចុចដើម្បីស្តាប់</button>
+
+  <script>
+    let voices = [];
+
+    // ផ្ទុកបញ្ជីសំឡេងពី Browser
+    function loadVoices() {
+      voices = window.speechSynthesis.getVoices();
+    }
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+    loadVoices();
+
+    function speakKhmer() {
+      const text = document.getElementById("text-input").value;
+      if (!text) return;
+
+      // បញ្ឈប់សំឡេងចាស់ប្រសិនបើកំពុងនិយាយ
+      window.speechSynthesis.cancel();
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      
+      // ស្វែងរកសំឡេង km-KH-SreymomNeural ឬសំឡេងខ្មែរផ្សេងទៀត
+      const sreymomVoice = voices.find(v => 
+        v.name.includes("Sreymom") || v.lang === "km-KH" || v.lang === "km"
+      );
+
+      if (sreymomVoice) {
+        utterance.voice = sreymomVoice;
+      }
+      
+      utterance.lang = "km-KH";
+      utterance.rate = 1.0; // ល្បឿននិយាយ (0.5 ដល់ 2.0)
+      window.speechSynthesis.speak(utterance);
+    }
+  </script>
+
+</body>
+</html>
+
