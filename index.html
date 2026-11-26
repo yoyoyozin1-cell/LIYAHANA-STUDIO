@@ -116,13 +116,17 @@
 
         <!-- Right Actions -->
         <div class="flex items-center space-x-2">
+            <button onclick="openApiKeyModal()" id="btn-api-key" class="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-xs font-medium text-amber-300 transition flex items-center gap-1.5">
+                <i class="fa-solid fa-key"></i>
+                <span id="api-key-btn-label">ដាក់ API Key</span>
+            </button>
             <button onclick="loadSampleProject()" class="px-3 py-1.5 rounded-lg bg-[#232634] hover:bg-[#2e3244] text-xs font-medium text-slate-200 transition flex items-center gap-1.5">
                 <i class="fa-solid fa-wand-magic-sparkles text-cyan-400"></i>
-                <span class="hidden sm:inline">សាកល្បងគម្រោងគំរូ</span>
+                <span class="hidden sm:inline">គំរូ SRT</span>
             </button>
             <button onclick="openExportModal()" class="px-4 py-1.5 rounded-lg capcut-cyan font-semibold text-xs transition shadow-lg shadow-cyan-500/20 flex items-center gap-1.5">
                 <i class="fa-solid fa-arrow-up-from-bracket"></i>
-                <span>នាំចេញ (Export)</span>
+                <span>នាំចេញ</span>
             </button>
         </div>
     </header>
@@ -464,6 +468,39 @@
         <span id="toast-message">សារជូនដំណឹង</span>
     </div>
 
+    <!-- Gemini API Key Setup Modal -->
+    <div id="apikey-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-[#161821] border border-[#2e3244] rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-key text-amber-400"></i>
+                    <span>កំណត់ Gemini API Key (ឥតគិតថ្លៃ)</span>
+                </h3>
+                <button onclick="closeApiKeyModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <p class="text-xs text-slate-300 leading-relaxed mb-3">
+                ដើម្បីឲ្យសំឡេង <strong class="text-cyan-400">Khmer Sreymom AI</strong> ដំណើរការនៅលើទូរស័ព្ទ និង GitHub Pages របស់អ្នក សូមយក API Key ឥតគិតថ្លៃពី Google AI Studio មកបិទភ្ជាប់ខាងក្រោម៖
+            </p>
+
+            <div class="bg-[#0f1015] border border-[#262936] rounded-xl p-3 text-[11px] text-slate-400 space-y-1.5 mb-4">
+                <p>១. ចូលទៅកាន់ <a href="https://aistudio.google.com/apikey" target="_blank" class="text-cyan-400 underline font-semibold">aistudio.google.com/apikey</a></p>
+                <p>២. ចុចប៊ូតុង <strong class="text-white">"Create API key"</strong> រួចចម្លង (Copy) កូដនោះ</p>
+                <p>៣. យកមកបិទភ្ជាប់ (Paste) ក្នុងប្រអប់ខាងក្រោម រួចចុចរក្សាទុក</p>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-xs text-slate-400 mb-1.5">បញ្ចូល Gemini API Key របស់អ្នក៖</label>
+                <input type="password" id="input-gemini-key" placeholder="AIzaSy..." class="w-full bg-[#0f1015] border border-[#2e3244] rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-400 font-mono">
+            </div>
+
+            <div class="flex gap-2">
+                <button onclick="closeApiKeyModal()" class="flex-1 py-2.5 rounded-xl bg-[#232634] hover:bg-[#2e3244] text-xs font-medium text-white">បិទ</button>
+                <button onclick="saveGeminiApiKey()" class="flex-1 py-2.5 rounded-xl capcut-cyan text-xs font-bold shadow-lg">រក្សាទុក Key</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Export Modal -->
     <div id="export-modal" class="hidden fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <div class="bg-[#161821] border border-[#2e3244] rounded-2xl max-w-md w-full p-6 shadow-2xl">
@@ -562,6 +599,7 @@
         // --- INITIALIZATION ---
         window.onload = function () {
             mainVideo.muted = state.videoMuted;
+            updateApiKeyButtonState();
             parseAndLoadSRT(SAMPLE_KHMER_SRT);
             renderTimeline();
             renderMediaLibrary();
@@ -570,21 +608,47 @@
             requestAnimationFrame(playbackLoop);
         };
 
-        // --- TAB NAVIGATION ---
-        function switchTab(tabName) {
-            const tabs = ['media', 'srt', 'tts', 'text'];
-            tabs.forEach(t => {
-                const panel = document.getElementById(`panel-${t}`);
-                const btn = document.getElementById(`tab-btn-${t}`);
-                if (t === tabName) {
-                    panel.classList.remove('hidden');
-                    btn.classList.add('bg-cyan-500/15', 'text-cyan-400', 'border', 'border-cyan-500/30');
-                    btn.classList.remove('text-slate-400');
-                } else {
-                    panel.classList.add('hidden');
-                    btn.classList.remove('bg-cyan-500/15', 'text-cyan-400', 'border', 'border-cyan-500/30');
-                    btn.classList.add('text-slate-400');
-                }
+        // --- API KEY MANAGEMENT ---
+        function getStoredApiKey() {
+            return localStorage.getItem('khmercut_gemini_api_key') || "";
+        }
+
+        function updateApiKeyButtonState() {
+            const key = getStoredApiKey();
+            const btn = document.getElementById('btn-api-key');
+            const label = document.getElementById('api-key-btn-label');
+            if (key) {
+                btn.className = "px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-xs font-medium text-emerald-300 transition flex items-center gap-1.5";
+                label.textContent = "API Key រួចរាល់";
+            } else {
+                btn.className = "px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-xs font-medium text-amber-300 transition flex items-center gap-1.5";
+                label.textContent = "ដាក់ API Key";
+            }
+        }
+
+        function openApiKeyModal() {
+            document.getElementById('input-gemini-key').value = getStoredApiKey();
+            document.getElementById('apikey-modal').classList.remove('hidden');
+        }
+
+        function closeApiKeyModal() {
+            document.getElementById('apikey-modal').classList.add('hidden');
+        }
+
+        function saveGeminiApiKey() {
+            const val = document.getElementById('input-gemini-key').value.trim();
+            if (!val) {
+                localStorage.removeItem('khmercut_gemini_api_key');
+                updateApiKeyButtonState();
+                closeApiKeyModal();
+                showToast('បានលុប API Key ចេញ។');
+                return;
+            }
+            localStorage.setItem('khmercut_gemini_api_key', val);
+            updateApiKeyButtonState();
+            closeApiKeyModal();
+            showToast('បានរក្សាទុក Gemini API Key ដោយជោគជ័យ! ឥឡូវអ្នកអាចបង្កើតសំឡេង Sreymom បានហើយ។');
+        }
             });
         }
 
@@ -728,9 +792,15 @@
 
         // --- GEMINI TTS ENGINE (KHMER SREYMOM / PISETH) ---
         async function callGeminiKhmerTTS(text, voicePersona = 'Sreymom', style = 'natural') {
+            const apiKey = getStoredApiKey();
+            if (!apiKey) {
+                openApiKeyModal();
+                throw new Error("MISSING_API_KEY");
+            }
+
             // Map Khmer Persona to Gemini Prebuilt Voices
-            // Sreymom -> Kore / Aoede (Clear, natural female tone)
-            // Piseth -> Puck / Fenrir (Clear male tone)
+            // Sreymom -> Aoede (Clear, natural female tone)
+            // Piseth -> Charon (Clear male tone)
             const geminiVoice = voicePersona === 'Piseth' ? 'Charon' : 'Aoede';
             
             const stylePrompts = {
@@ -752,6 +822,27 @@
                         voiceConfig: {
                             prebuiltVoiceConfig: { voiceName: geminiVoice }
                         }
+                    }
+                },
+                model: "gemini-2.5-flash-preview-tts"
+            };
+
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
+
+            // Exponential backoff retry logic
+            let delay = 1000;
+            for (let attempt = 0; attempt < 4; attempt++) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        const errData = await response.json().catch(() => ({}));
+                        throw new Error(errData?.error?.message || `HTTP ${response.status}`);
+                    }
                     }
                 },
                 model: "gemini-2.5-flash-preview-tts"
@@ -899,7 +990,11 @@
             } catch (error) {
                 item.status = 'idle';
                 renderSrtList();
-                showToast(`មានបញ្ហាក្នុងការបង្កើតសំឡេង សូមព្យាយាមម្តងទៀត។`, 'error');
+                if (error.message === 'MISSING_API_KEY') {
+                    showToast('សូមបញ្ចូល Gemini API Key ជាមុនសិន!', 'error');
+                } else {
+                    showToast(`បរាជ័យ: ${error.message} (សូមពិនិត្យ API Key ឬអ៊ីនធឺណិត)`, 'error');
+                }
             }
         }
 
@@ -943,7 +1038,51 @@
                 audio.play();
                 showToast('កំពុងចាក់សំឡេងសាកល្បង...');
             } catch (e) {
-                showToast('បរាជ័យក្នុងការបង្កើតសំឡេង។', 'error');
+                if (e.message !== 'MISSING_API_KEY') {
+                    showToast(`បរាជ័យ: ${e.message}`, 'error');
+                }
+            }
+        }
+
+        async function addStandaloneTTSToTimeline() {
+            const text = document.getElementById('standalone-text').value.trim();
+            if (!text) return showToast('សូមសរសេរអត្ថបទជាមុនសិន!', 'error');
+
+            const voice = document.getElementById('standalone-voice').value;
+            const style = document.getElementById('standalone-style').value;
+            const speed = parseFloat(document.getElementById('standalone-speed').value);
+
+            showToast(`កំពុងបង្កើតសំឡេង ${voice} ដាក់ចូល Timeline...`, 'loading');
+            try {
+                const { audioUrl, duration } = await callGeminiKhmerTTS(text, voice, style);
+                const adjustedDuration = duration / speed;
+                const audioObj = new Audio(audioUrl);
+                audioObj.playbackRate = speed;
+
+                const newClipId = `aud-custom-${Date.now()}`;
+                const clip = {
+                    id: newClipId,
+                    srtId: null,
+                    text: text,
+                    voice: voice,
+                    startTime: state.currentTime,
+                    duration: adjustedDuration,
+                    audioUrl: audioUrl,
+                    audioEl: audioObj
+                };
+
+                state.audioClips.push(clip);
+                if (clip.startTime + clip.duration > state.duration) {
+                    state.duration = Math.ceil(clip.startTime + clip.duration + 1);
+                }
+
+                renderTimeline();
+                renderGeneratedClipsList();
+                showToast('បានបញ្ចូលសំឡេងទៅក្នុង Timeline ដោយជោគជ័យ!');
+            } catch (e) {
+                if (e.message !== 'MISSING_API_KEY') {
+                    showToast(`បរាជ័យ: ${e.message}`, 'error');
+                }
             }
         }
 
