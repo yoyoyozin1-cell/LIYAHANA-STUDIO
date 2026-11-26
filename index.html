@@ -1,1516 +1,230 @@
-<!DOCTYPE html>
-<html lang="km">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KhmerCut Studio - កម្មវិធីកាត់តវីដេអូ & Khmer TTS</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google Fonts: Kantumruy Pro & Inter -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Kantumruy+Pro:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <!-- FontAwesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    
-    <style>
-        body {
-            font-family: 'Kantumruy Pro', 'Inter', sans-serif;
-            background-color: #0f1015;
-            color: #e2e8f0;
-            user-select: none;
-            overflow: hidden;
-        }
-        
-        /* Custom Scrollbar for dark editor theme */
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #161821;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #2e3244;
-            border-radius: 3px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #00e5ff;
-        }
-
-        /* Timeline Ruler Pattern */
-        .timeline-ruler {
-            background-image: repeating-linear-gradient(
-                to right,
-                #475569 0px,
-                #475569 1px,
-                transparent 1px,
-                transparent 50px
-            );
-        }
-
-        /* Custom Range Slider */
-        input[type=range] {
-            -webkit-appearance: none;
-            background: transparent;
-        }
-        input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            height: 14px;
-            width: 14px;
-            border-radius: 50%;
-            background: #00e5ff;
-            cursor: pointer;
-            margin-top: -5px;
-            box-shadow: 0 0 8px rgba(0, 229, 255, 0.6);
-        }
-        input[type=range]::-webkit-slider-runnable-track {
-            width: 100%;
-            height: 4px;
-            cursor: pointer;
-            background: #2e3244;
-            border-radius: 2px;
-        }
-
-        /* Glow & Active effects */
-        .capcut-cyan {
-            background: linear-gradient(135deg, #00e5ff 0%, #00b8d4 100%);
-            color: #090a0f;
-        }
-        .capcut-cyan:hover {
-            background: linear-gradient(135deg, #33ebff 0%, #00e5ff 100%);
-        }
-        
-        @keyframes pulse-ring {
-            0% { transform: scale(0.95); opacity: 0.7; }
-            50% { transform: scale(1.05); opacity: 1; }
-            100% { transform: scale(0.95); opacity: 0.7; }
-        }
-        .generating-pulse {
-            animation: pulse-ring 1.5s infinite ease-in-out;
-        }
-    </style>
-</head>
-<body class="h-screen flex flex-col">
-
-    <!-- Top Header Bar (CapCut Style) -->
-    <header class="h-12 bg-[#161821] border-b border-[#262936] px-4 flex items-center justify-between shrink-0">
-        <div class="flex items-center space-x-3">
-            <div class="w-8 h-8 rounded-lg capcut-cyan flex items-center justify-center font-bold text-lg shadow-lg">
-                <i class="fa-solid fa-scissors"></i>
-            </div>
-            <div>
-                <h1 class="font-bold text-sm tracking-wide text-white flex items-center gap-2">
-                    KhmerCut <span class="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">PRO AI</span>
-                </h1>
-                <p class="text-[10px] text-slate-400">គម្រោងវីដេអូថ្មី_01.kcut</p>
-            </div>
-        </div>
-
-        <!-- Center Status / Quick Info -->
-        <div class="hidden md:flex items-center space-x-4 text-xs text-slate-400 bg-[#0f1015] px-3 py-1 rounded-full border border-[#262936]">
-            <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-400"></span> Khmer TTS Engine (Sreymom Neural) រួចរាល់</span>
-            <span>|</span>
-            <span>1080p • 30fps</span>
-        </div>
-
-        <!-- Right Actions -->
-        <div class="flex items-center space-x-2">
-            <button onclick="openApiKeyModal()" id="btn-api-key" class="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-xs font-medium text-amber-300 transition flex items-center gap-1.5">
-                <i class="fa-solid fa-key"></i>
-                <span id="api-key-btn-label">ដាក់ API Key</span>
-            </button>
-            <button onclick="loadSampleProject()" class="px-3 py-1.5 rounded-lg bg-[#232634] hover:bg-[#2e3244] text-xs font-medium text-slate-200 transition flex items-center gap-1.5">
-                <i class="fa-solid fa-wand-magic-sparkles text-cyan-400"></i>
-                <span class="hidden sm:inline">គំរូ SRT</span>
-            </button>
-            <button onclick="openExportModal()" class="px-4 py-1.5 rounded-lg capcut-cyan font-semibold text-xs transition shadow-lg shadow-cyan-500/20 flex items-center gap-1.5">
-                <i class="fa-solid fa-arrow-up-from-bracket"></i>
-                <span>នាំចេញ</span>
-            </button>
-        </div>
-    </header>
-
-    <!-- Main Workspace Area (Top Half: Sidebar + Panel + Preview + Properties) -->
-    <div class="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
-        
-        <!-- Left Navigation Rail + Drawer Panel -->
-        <div class="flex h-1/2 lg:h-full lg:w-[440px] xl:w-[480px] border-b lg:border-b-0 lg:border-r border-[#262936] bg-[#161821] shrink-0">
-            
-            <!-- Vertical Tool Icons -->
-            <nav class="w-16 bg-[#12131a] border-r border-[#262936] flex flex-col items-center py-3 space-y-4 shrink-0">
-                <button onclick="switchTab('media')" id="tab-btn-media" class="tab-btn flex flex-col items-center justify-center w-12 h-12 rounded-xl text-slate-400 hover:text-white hover:bg-[#1e202b] transition">
-                    <i class="fa-solid fa-photo-film text-base mb-1"></i>
-                    <span class="text-[10px]">មេឌៀ</span>
-                </button>
-                <button onclick="switchTab('srt')" id="tab-btn-srt" class="tab-btn flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 transition">
-                    <i class="fa-solid fa-closed-captioning text-base mb-1"></i>
-                    <span class="text-[10px] font-semibold">SRT & TTS</span>
-                </button>
-                <button onclick="switchTab('tts')" id="tab-btn-tts" class="tab-btn flex flex-col items-center justify-center w-12 h-12 rounded-xl text-slate-400 hover:text-white hover:bg-[#1e202b] transition">
-                    <i class="fa-solid fa-microphone-lines text-base mb-1"></i>
-                    <span class="text-[10px]">សំឡេង AI</span>
-                </button>
-                <button onclick="switchTab('text')" id="tab-btn-text" class="tab-btn flex flex-col items-center justify-center w-12 h-12 rounded-xl text-slate-400 hover:text-white hover:bg-[#1e202b] transition">
-                    <i class="fa-solid fa-font text-base mb-1"></i>
-                    <span class="text-[10px]">អក្សរ</span>
-                </button>
-            </nav>
-
-            <!-- Active Tool Panel Content -->
-            <div class="flex-1 flex flex-col overflow-hidden bg-[#161821]">
-                
-                <!-- PANEL 1: MEDIA IMPORT -->
-                <div id="panel-media" class="hidden flex-1 flex flex-col p-4 overflow-y-auto">
-                    <h2 class="text-sm font-bold text-white mb-3 flex items-center justify-between">
-                        <span>បញ្ចូលវីដេអូ / រូបភាព (Media)</span>
-                        <span class="text-xs text-slate-400 font-normal">MP4, WebM, JPG</span>
-                    </h2>
-                    
-                    <label class="border-2 border-dashed border-[#2e3244] hover:border-cyan-400 rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer bg-[#1b1d28] transition group mb-4">
-                        <div class="w-10 h-10 rounded-full bg-cyan-500/10 text-cyan-400 flex items-center justify-center mb-2 group-hover:scale-110 transition">
-                            <i class="fa-solid fa-cloud-arrow-up text-lg"></i>
-                        </div>
-                        <span class="text-xs font-medium text-white">ចុចដើម្បីជ្រើសរើសវីដេអូ ឬអូសទម្លាក់ទីនេះ</span>
-                        <span class="text-[10px] text-slate-400 mt-1">គាំទ្រឯកសារវីដេអូគ្រប់ប្រភេទ</span>
-                        <input type="file" id="video-upload" accept="video/*" class="hidden" onchange="handleVideoUpload(event)">
-                    </label>
-
-                    <div id="media-library" class="grid grid-cols-2 gap-2.5">
-                        <!-- Sample / Uploaded videos appear here -->
-                    </div>
-                </div>
-
-                <!-- PANEL 2: SRT & CLICK-TO-SPEECH (MAIN REQUESTED FEATURE) -->
-                <div id="panel-srt" class="flex-1 flex flex-col overflow-hidden">
-                    <!-- Top Controls for SRT -->
-                    <div class="p-3 border-b border-[#262936] bg-[#1a1c26]">
-                        <div class="flex items-center justify-between mb-2">
-                            <h2 class="text-sm font-bold text-white flex items-center gap-1.5">
-                                <i class="fa-solid fa-file-lines text-cyan-400"></i>
-                                <span>ចំណងជើងរង (SRT) & Sreymom TTS</span>
-                            </h2>
-                            <label class="px-2.5 py-1 rounded-lg bg-[#262936] hover:bg-[#323647] text-cyan-400 text-xs font-medium cursor-pointer transition flex items-center gap-1">
-                                <i class="fa-solid fa-upload"></i>
-                                <span>បញ្ចូល .SRT</span>
-                                <input type="file" id="srt-upload" accept=".srt,.vtt,.txt" class="hidden" onchange="handleSrtUpload(event)">
-                            </label>
-                        </div>
-
-                        <!-- Voice & Batch Actions Bar -->
-                        <div class="flex flex-wrap items-center gap-2 mt-2">
-                            <div class="flex-1 min-w-[140px]">
-                                <select id="srt-voice-select" class="w-full bg-[#0f1015] border border-[#2e3244] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-400">
-                                    <option value="Sreymom">🇰🇭 Khmer - Sreymom (សំឡេងស្រី - ធម្មជាតិ)</option>
-                                    <option value="Piseth">🇰🇭 Khmer - Piseth (សំឡេងប្រុស - ច្បាស់)</option>
-                                </select>
-                            </div>
-                            <button onclick="generateAllSrtTTS()" id="btn-generate-all" class="px-3 py-1.5 rounded-lg capcut-cyan text-xs font-semibold transition flex items-center gap-1.5 shadow">
-                                <i class="fa-solid fa-bolt"></i>
-                                <span>បង្កើតសំឡេងទាំងអស់</span>
-                            </button>
-                        </div>
-                        <p class="text-[11px] text-slate-400 mt-2">
-                            <i class="fa-solid fa-circle-info text-cyan-400 mr-1"></i>
-                            ចុចលើឃ្លាណាមួយខាងក្រោម ឬចុចប៊ូតុង <strong class="text-white">"បង្កើតសំឡេង Sreymom"</strong> ដើម្បីបំប្លែងជាសំឡេងដាក់ចូល Timeline។
-                        </p>
-                    </div>
-
-                    <!-- SRT List Container -->
-                    <div id="srt-list-container" class="flex-1 overflow-y-auto p-3 space-y-2.5">
-                        <!-- SRT Items will be rendered here -->
-                    </div>
-                </div>
-
-                <!-- PANEL 3: STANDALONE KHMER TEXT TO SPEECH (CLIPCHAMP STYLE) -->
-                <div id="panel-tts" class="hidden flex-1 flex flex-col p-4 overflow-y-auto">
-                    <div class="flex items-center justify-between mb-3">
-                        <h2 class="text-sm font-bold text-white flex items-center gap-2">
-                            <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
-                            <span>Khmer Text-to-Speech (Clipchamp Style)</span>
-                        </h2>
-                    </div>
-
-                    <div class="space-y-3 bg-[#1b1d28] p-3.5 rounded-xl border border-[#262936]">
-                        <div>
-                            <label class="block text-xs text-slate-400 mb-1">ជ្រើសរើសតួអង្គសំឡេង (Voice)</label>
-                            <select id="standalone-voice" class="w-full bg-[#0f1015] border border-[#2e3244] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-400">
-                                <option value="Sreymom">🇰🇭 Sreymom (សំឡេងស្រីខ្មែរ - ពិរោះរណ្តំ)</option>
-                                <option value="Piseth">🇰🇭 Piseth (សំឡេងប្រុសខ្មែរ - ម៉ឺងម៉ាត់)</option>
-                            </select>
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-2">
-                            <div>
-                                <label class="block text-xs text-slate-400 mb-1">អារម្មណ៍សំឡេង (Style)</label>
-                                <select id="standalone-style" class="w-full bg-[#0f1015] border border-[#2e3244] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-400">
-                                    <option value="natural">ធម្មជាតិ (Natural)</option>
-                                    <option value="cheerful">រីករាយ (Cheerful)</option>
-                                    <option value="newscast">អានព័ត៌មាន (Newscast)</option>
-                                    <option value="storytelling">និទានរឿង (Storytelling)</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-xs text-slate-400 mb-1">ល្បឿននិយាយ (Speed): <span id="speed-val" class="text-cyan-400">1.0x</span></label>
-                                <input type="range" id="standalone-speed" min="0.7" max="1.4" step="0.1" value="1.0" oninput="document.getElementById('speed-val').innerText = this.value + 'x'" class="w-full mt-2">
-                            </div>
-                        </div>
-
-                        <div>
-                            <label class="block text-xs text-slate-400 mb-1">បញ្ចូលអត្ថបទភាសាខ្មែរ (Khmer Text)</label>
-                            <textarea id="standalone-text" rows="4" placeholder="សូមសរសេរអត្ថបទភាសាខ្មែរនៅទីនេះ ដើម្បីឲ្យ Sreymom អាន..." class="w-full bg-[#0f1015] border border-[#2e3244] rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-cyan-400 resize-none">សួស្តីអ្នកទាំងអស់គ្នា! ស្វាគមន៍មកកាន់កម្មវិធីកាត់តវីដេអូ KhmerCut Studio ដែលមានសំឡេង Sreymom និយាយភាសាខ្មែរយ៉ាងច្បាស់។</textarea>
-                        </div>
-
-                        <div class="flex gap-2 pt-1">
-                            <button onclick="previewStandaloneTTS()" id="btn-preview-tts" class="flex-1 py-2 rounded-lg bg-[#262936] hover:bg-[#323647] text-white text-xs font-medium transition flex items-center justify-center gap-1.5">
-                                <i class="fa-solid fa-play text-cyan-400"></i>
-                                <span>ស្តាប់សាកល្បង</span>
-                            </button>
-                            <button onclick="addStandaloneTTSToTimeline()" id="btn-add-tts" class="flex-1 py-2 rounded-lg capcut-cyan text-xs font-semibold transition flex items-center justify-center gap-1.5">
-                                <i class="fa-solid fa-plus"></i>
-                                <span>ដាក់ចូល Timeline</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Generated Audio Clips History -->
-                    <div class="mt-4">
-                        <h3 class="text-xs font-semibold text-slate-400 mb-2">សំឡេងដែលបានបង្កើតរួច (Generated Clips)</h3>
-                        <div id="generated-clips-list" class="space-y-2">
-                            <p class="text-xs text-slate-500 italic text-center py-4">មិនទាន់មានសំឡេងដែលបានបង្កើតនៅឡើយទេ</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- PANEL 4: TEXT OVERLAY -->
-                <div id="panel-text" class="hidden flex-1 flex flex-col p-4 overflow-y-auto">
-                    <h2 class="text-sm font-bold text-white mb-3">រចនាម៉ូដអក្សរ Subtitle (Style)</h2>
-                    <div class="space-y-4 bg-[#1b1d28] p-3.5 rounded-xl border border-[#262936]">
-                        <div>
-                            <label class="block text-xs text-slate-400 mb-1.5">ទំហំអក្សរ (Font Size)</label>
-                            <input type="range" id="sub-font-size" min="16" max="42" value="24" oninput="updateSubtitleStyle()" class="w-full">
-                        </div>
-                        <div>
-                            <label class="block text-xs text-slate-400 mb-1.5">ពណ៌អក្សរ (Text Color)</label>
-                            <div class="flex gap-2">
-                                <button onclick="setSubColor('#ffffff')" class="w-7 h-7 rounded-full bg-white border-2 border-cyan-400"></button>
-                                <button onclick="setSubColor('#facc15')" class="w-7 h-7 rounded-full bg-yellow-400 border border-slate-600"></button>
-                                <button onclick="setSubColor('#00e5ff')" class="w-7 h-7 rounded-full bg-cyan-400 border border-slate-600"></button>
-                                <button onclick="setSubColor('#4ade80')" class="w-7 h-7 rounded-full bg-green-400 border border-slate-600"></button>
-                            </div>
-                        </div>
-                        <div class="flex items-center justify-between">
-                            <span class="text-xs text-slate-300">ផ្ទៃខាងក្រោយខ្មៅស្រអាប់ (Background Box)</span>
-                            <input type="checkbox" id="sub-bg-toggle" checked onchange="updateSubtitleStyle()" class="accent-cyan-400 w-4 h-4">
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-        </div>
-
-        <!-- Center Video Preview Stage (Player) -->
-        <div class="flex-1 flex flex-col bg-[#0b0c10] relative overflow-hidden">
-            
-            <!-- Preview Top Bar -->
-            <div class="h-9 px-4 flex items-center justify-between text-xs text-slate-400 border-b border-[#1e202b]">
-                <span>ផ្ទាំងបង្ហាញលទ្ធផល (Player)</span>
-                <div class="flex items-center gap-2">
-                    <button onclick="setAspectRatio('16:9')" id="ratio-16-9" class="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 text-[10px]">16:9 YouTube</button>
-                    <button onclick="setAspectRatio('9:16')" id="ratio-9-16" class="px-2 py-0.5 rounded bg-[#1a1c26] hover:bg-[#262936] text-[10px]">9:16 TikTok / Reels</button>
-                </div>
-            </div>
-
-            <!-- Video Canvas / Stage -->
-            <div class="flex-1 flex items-center justify-center p-4 relative overflow-hidden">
-                <div id="video-stage" class="relative bg-black rounded-xl overflow-hidden shadow-2xl border border-[#262936] flex items-center justify-center transition-all duration-300 aspect-video w-full max-w-2xl max-h-full">
-                    
-                    <!-- Main HTML5 Video Element -->
-                    <video id="main-video" class="w-full h-full object-contain" playsinline crossorigin="anonymous">
-                        <source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4" type="video/mp4">
-                    </video>
-
-                    <!-- Fallback Visual Canvas when no video or custom background -->
-                    <div id="visual-backdrop" class="hidden absolute inset-0 bg-gradient-to-br from-slate-900 via-[#131b2e] to-cyan-950 flex flex-col items-center justify-center text-center p-6 pointer-events-none">
-                        <i class="fa-solid fa-film text-4xl text-cyan-500/40 mb-2"></i>
-                        <p class="text-xs text-slate-400">ផ្ទាំងវីដេអូ KhmerCut Studio</p>
-                    </div>
-
-                    <!-- Live Subtitle Overlay -->
-                    <div id="live-subtitle-wrapper" class="absolute bottom-6 left-4 right-4 flex justify-center pointer-events-none transition-all">
-                        <div id="live-subtitle-text" class="px-4 py-1.5 rounded-lg bg-black/75 text-white text-center font-medium shadow-lg backdrop-blur-sm max-w-[90%] leading-relaxed" style="font-size: 22px;">
-                            សូមស្វាគមន៍មកកាន់ KhmerCut Studio
-                        </div>
-                    </div>
-
-                    <!-- TTS Speaking Indicator Badge -->
-                    <div id="speaking-badge" class="hidden absolute top-3 right-3 bg-cyan-500/90 text-slate-950 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-lg">
-                        <i class="fa-solid fa-volume-high animate-bounce"></i>
-                        <span id="speaking-voice-label">Sreymom កំពុងនិយាយ...</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Playback Controls Bar -->
-            <div class="h-12 bg-[#161821] border-t border-[#262936] px-4 flex items-center justify-between shrink-0">
-                <div class="flex items-center space-x-2 text-xs font-mono">
-                    <span id="current-time-display" class="text-cyan-400 font-semibold">00:00.0</span>
-                    <span class="text-slate-600">/</span>
-                    <span id="total-time-display" class="text-slate-400">00:15.0</span>
-                </div>
-
-                <div class="flex items-center space-x-4">
-                    <button onclick="skipTime(-2)" class="text-slate-400 hover:text-white transition p-1.5" title="ថយក្រោយ 2 វិនាទី">
-                        <i class="fa-solid fa-backward-step"></i>
-                    </button>
-                    <button onclick="togglePlayPause()" id="play-pause-btn" class="w-9 h-9 rounded-full capcut-cyan flex items-center justify-center text-sm shadow-lg transition transform active:scale-95">
-                        <i class="fa-solid fa-play ml-0.5" id="play-pause-icon"></i>
-                    </button>
-                    <button onclick="skipTime(2)" class="text-slate-400 hover:text-white transition p-1.5" title="ទៅមុខ 2 វិនាទី">
-                        <i class="fa-solid fa-forward-step"></i>
-                    </button>
-                </div>
-
-                <div class="flex items-center space-x-3">
-                    <button onclick="toggleMuteVideo()" id="mute-video-btn" class="text-xs text-slate-400 hover:text-white flex items-center gap-1 bg-[#232634] px-2.5 py-1 rounded-lg">
-                        <i class="fa-solid fa-volume-xmark text-rose-400" id="video-vol-icon"></i>
-                        <span class="hidden sm:inline" id="video-vol-text">បិទសំឡេងវីដេអូដើម</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Bottom Multi-Track Timeline (CapCut Style) -->
-    <div class="h-56 lg:h-64 bg-[#12131a] border-t border-[#262936] flex flex-col shrink-0 select-none">
-        
-        <!-- Timeline Toolbar -->
-        <div class="h-9 bg-[#161821] border-b border-[#262936] px-4 flex items-center justify-between text-xs">
-            <div class="flex items-center space-x-3">
-                <button onclick="splitAtPlayhead()" class="flex items-center gap-1.5 text-slate-300 hover:text-cyan-400 px-2 py-1 rounded hover:bg-[#232634] transition">
-                    <i class="fa-solid fa-scissors"></i>
-                    <span>កាត់ (Split)</span>
-                </button>
-                <button onclick="deleteSelectedClip()" class="flex items-center gap-1.5 text-slate-300 hover:text-rose-400 px-2 py-1 rounded hover:bg-[#232634] transition">
-                    <i class="fa-solid fa-trash-can"></i>
-                    <span>លុប</span>
-                </button>
-            </div>
-
-            <!-- Zoom Controls -->
-            <div class="flex items-center space-x-2">
-                <i class="fa-solid fa-magnifying-glass-minus text-slate-400 text-[11px]"></i>
-                <input type="range" id="timeline-zoom" min="30" max="120" value="60" oninput="updateTimelineZoom(this.value)" class="w-24">
-                <i class="fa-solid fa-magnifying-glass-plus text-slate-400 text-[11px]"></i>
-            </div>
-        </div>
-
-        <!-- Timeline Tracks Area -->
-        <div class="flex-1 flex overflow-hidden relative">
-            
-            <!-- Track Headers (Left Fixed Column) -->
-            <div class="w-28 sm:w-36 bg-[#161821] border-r border-[#262936] flex flex-col shrink-0 z-10">
-                <div class="h-6 border-b border-[#262936] bg-[#12131a]"></div> <!-- Ruler spacer -->
-                
-                <!-- Video Track Label -->
-                <div class="h-14 border-b border-[#262936] px-2.5 flex items-center justify-between text-xs text-slate-300">
-                    <span class="flex items-center gap-1.5 truncate"><i class="fa-solid fa-video text-blue-400"></i> វីដេអូ</span>
-                </div>
-                
-                <!-- Subtitle / SRT Track Label -->
-                <div class="h-12 border-b border-[#262936] px-2.5 flex items-center justify-between text-xs text-slate-300">
-                    <span class="flex items-center gap-1.5 truncate"><i class="fa-solid fa-closed-captioning text-amber-400"></i> SRT អក្សរ</span>
-                </div>
-
-                <!-- Khmer TTS Audio Track Label -->
-                <div class="h-14 px-2.5 flex items-center justify-between text-xs text-cyan-400 font-medium">
-                    <span class="flex items-center gap-1.5 truncate"><i class="fa-solid fa-wave-square"></i> សំឡេង AI</span>
-                </div>
-            </div>
-
-            <!-- Scrollable Tracks Canvas -->
-            <div id="timeline-scroll-area" class="flex-1 overflow-x-auto overflow-y-hidden relative bg-[#0e0f14]" onclick="handleTimelineClick(event)">
-                <div id="timeline-content" class="relative h-full" style="width: 1200px;">
-                    
-                    <!-- Time Ruler -->
-                    <div id="timeline-ruler" class="h-6 border-b border-[#262936] bg-[#14161f] timeline-ruler relative flex items-center text-[10px] text-slate-500 font-mono">
-                        <!-- Time markers injected by JS -->
-                    </div>
-
-                    <!-- Track 1: Video Track -->
-                    <div id="track-video" class="h-14 border-b border-[#262936]/60 relative flex items-center px-0 py-1.5">
-                        <!-- Video blocks injected by JS -->
-                    </div>
-
-                    <!-- Track 2: SRT Subtitles Track -->
-                    <div id="track-srt" class="h-12 border-b border-[#262936]/60 relative flex items-center py-1">
-                        <!-- SRT blocks injected by JS -->
-                    </div>
-
-                    <!-- Track 3: Khmer TTS Voiceover Track -->
-                    <div id="track-audio" class="h-14 relative flex items-center py-1.5">
-                        <!-- Generated TTS audio blocks injected by JS -->
-                    </div>
-
-                    <!-- Playhead (Red/Cyan Vertical Scrubber Line) -->
-                    <div id="playhead" class="absolute top-0 bottom-0 w-0.5 bg-cyan-400 z-20 pointer-events-none" style="left: 0px;">
-                        <div class="w-3 h-3 -ml-[5px] bg-cyan-400 rotate-45 transform -mt-1 shadow"></div>
-                    </div>
-
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Custom Toast / Message Notification -->
-    <div id="toast-box" class="fixed bottom-4 right-4 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-[#1e2130] border border-cyan-500/40 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 text-xs max-w-sm">
-        <i id="toast-icon" class="fa-solid fa-circle-check text-cyan-400 text-base"></i>
-        <span id="toast-message">សារជូនដំណឹង</span>
-    </div>
-
-    <!-- Gemini API Key Setup Modal -->
-    <div id="apikey-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-[#161821] border border-[#2e3244] rounded-2xl max-w-md w-full p-6 shadow-2xl">
-            <div class="flex items-center justify-between mb-3">
-                <h3 class="text-base font-bold text-white flex items-center gap-2">
-                    <i class="fa-solid fa-key text-amber-400"></i>
-                    <span>កំណត់ Gemini API Key (ឥតគិតថ្លៃ)</span>
-                </h3>
-                <button onclick="closeApiKeyModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            
-            <p class="text-xs text-slate-300 leading-relaxed mb-3">
-                ដើម្បីឲ្យសំឡេង <strong class="text-cyan-400">Khmer Sreymom AI</strong> ដំណើរការនៅលើទូរស័ព្ទ និង GitHub Pages របស់អ្នក សូមយក API Key ឥតគិតថ្លៃពី Google AI Studio មកបិទភ្ជាប់ខាងក្រោម៖
-            </p>
-
-            <div class="bg-[#0f1015] border border-[#262936] rounded-xl p-3 text-[11px] text-slate-400 space-y-1.5 mb-4">
-                <p>១. ចូលទៅកាន់ <a href="https://aistudio.google.com/apikey" target="_blank" class="text-cyan-400 underline font-semibold">aistudio.google.com/apikey</a></p>
-                <p>២. ចុចប៊ូតុង <strong class="text-white">"Create API key"</strong> រួចចម្លង (Copy) កូដនោះ</p>
-                <p>៣. យកមកបិទភ្ជាប់ (Paste) ក្នុងប្រអប់ខាងក្រោម រួចចុចរក្សាទុក</p>
-            </div>
-
-            <div class="mb-4">
-                <label class="block text-xs text-slate-400 mb-1.5">បញ្ចូល Gemini API Key របស់អ្នក៖</label>
-                <input type="password" id="input-gemini-key" placeholder="AIzaSy..." class="w-full bg-[#0f1015] border border-[#2e3244] rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-400 font-mono">
-            </div>
-
-            <div class="flex gap-2">
-                <button onclick="closeApiKeyModal()" class="flex-1 py-2.5 rounded-xl bg-[#232634] hover:bg-[#2e3244] text-xs font-medium text-white">បិទ</button>
-                <button onclick="saveGeminiApiKey()" class="flex-1 py-2.5 rounded-xl capcut-cyan text-xs font-bold shadow-lg">រក្សាទុក Key</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Export Modal -->
-    <div id="export-modal" class="hidden fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-[#161821] border border-[#2e3244] rounded-2xl max-w-md w-full p-6 shadow-2xl">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-base font-bold text-white flex items-center gap-2">
-                    <i class="fa-solid fa-film text-cyan-400"></i>
-                    <span>នាំចេញវីដេអូ (Export Project)</span>
-                </h3>
-                <button onclick="closeExportModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            
-            <div class="space-y-3 text-xs mb-5">
-                <div class="flex justify-between p-2.5 rounded-lg bg-[#0f1015]">
-                    <span class="text-slate-400">ឈ្មោះឯកសារ:</span>
-                    <span class="text-white font-medium">KhmerCut_Sreymom_Edit.mp4</span>
-                </div>
-                <div class="flex justify-between p-2.5 rounded-lg bg-[#0f1015]">
-                    <span class="text-slate-400">កម្រិតច្បាស់ (Resolution):</span>
-                    <span class="text-cyan-400 font-semibold">1080p Full HD</span>
-                </div>
-                <div class="flex justify-between p-2.5 rounded-lg bg-[#0f1015]">
-                    <span class="text-slate-400">សំឡេង AI ដែលបានបញ្ចូល:</span>
-                    <span id="export-audio-count" class="text-emerald-400 font-semibold">0 ឃ្លា</span>
-                </div>
-            </div>
-
-            <div id="export-progress-container" class="hidden mb-4">
-                <div class="flex justify-between text-xs mb-1">
-                    <span class="text-cyan-400">កំពុងដំណើរការបញ្ចូលសំឡេង និងវីដេអូ...</span>
-                    <span id="export-percent">0%</span>
-                </div>
-                <div class="w-full h-2 bg-[#0f1015] rounded-full overflow-hidden">
-                    <div id="export-bar" class="h-full capcut-cyan transition-all duration-200" style="width: 0%"></div>
-                </div>
-            </div>
-
-            <div class="flex gap-2">
-                <button onclick="closeExportModal()" class="flex-1 py-2.5 rounded-xl bg-[#232634] hover:bg-[#2e3244] text-xs font-medium text-white">បោះបង់</button>
-                <button onclick="startSimulatedExport()" id="btn-confirm-export" class="flex-1 py-2.5 rounded-xl capcut-cyan text-xs font-bold shadow-lg">ចាប់ផ្តើមនាំចេញ</button>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        /**
-         * KhmerCut Studio - Core Application Logic
-         * Features:
-         * 1. Multi-track Timeline (Video, SRT Subtitles, Khmer AI Audio)
-         * 2. SRT File Parser & Sample Khmer SRT Loader
-         * 3. Click-to-Speech via Gemini 2.5 Flash Preview TTS (Real Khmer Audio Generation)
-         * 4. Synchronized Video + Subtitle + Generated Audio Playback
-         */
-
-        // --- GLOBAL STATE ---
-        const state = {
-            currentTime: 0,
-            duration: 18, // seconds
-            isPlaying: false,
-            pixelsPerSecond: 60,
-            videoMuted: true,
-            selectedItem: null, // { type: 'srt' | 'audio' | 'video', id: string }
-            srtItems: [],
-            audioClips: [], // { id, srtId, text, voice, startTime, duration, audioUrl, audioEl }
-            videoClips: [
-                { id: 'vid-1', name: 'វីដេអូដើម (Sample Video)', startTime: 0, duration: 18, url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4' }
-            ],
-            activeAudioPlayers: new Set()
-        };
-
-        // Sample Khmer SRT content for immediate testing
-        const SAMPLE_KHMER_SRT = `1
-00:00:00,500 --> 00:00:04,200
-សួស្តីអ្នកទាំងអស់គ្នា! ស្វាគមន៍មកកាន់កម្មវិធីកាត់តវីដេអូ KhmerCut។
-
-2
-00:00:04,500 --> 00:00:08,800
-ថ្ងៃនេះយើងនឹងបង្ហាញពីរបៀបប្រើប្រាស់សំឡេង Sreymom និយាយភាសាខ្មែរ។
-
-3
-00:00:09,200 --> 00:00:13,500
-អ្នកគ្រាន់តែបញ្ចូលឯកសារ SRT រួចចុចលើឃ្លានីមួយៗជាការស្រេច។
-
-4
-00:00:13,800 --> 00:00:17,500
-ពិតជាងាយស្រួល រហ័ស និងមានសំឡេងច្បាស់ដូចមនុស្សពិតៗ!`;
-
-        // --- DOM ELEMENTS ---
-        const mainVideo = document.getElementById('main-video');
-        const playheadEl = document.getElementById('playhead');
-        const timelineContent = document.getElementById('timeline-content');
-        const currentTimeDisplay = document.getElementById('current-time-display');
-        const totalTimeDisplay = document.getElementById('total-time-display');
-        const liveSubtitleText = document.getElementById('live-subtitle-text');
-        const speakingBadge = document.getElementById('speaking-badge');
-
-        // --- INITIALIZATION ---
-        window.onload = function () {
-            mainVideo.muted = state.videoMuted;
-            updateApiKeyButtonState();
-            parseAndLoadSRT(SAMPLE_KHMER_SRT);
-            renderTimeline();
-            renderMediaLibrary();
-            
-            // Start animation/playback loop
-            requestAnimationFrame(playbackLoop);
-        };
-
-        // --- API KEY MANAGEMENT ---
-        function getStoredApiKey() {
-            return localStorage.getItem('khmercut_gemini_api_key') || "";
-        }
-
-        function updateApiKeyButtonState() {
-            const key = getStoredApiKey();
-            const btn = document.getElementById('btn-api-key');
-            const label = document.getElementById('api-key-btn-label');
-            if (key) {
-                btn.className = "px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-xs font-medium text-emerald-300 transition flex items-center gap-1.5";
-                label.textContent = "API Key រួចរាល់";
-            } else {
-                btn.className = "px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-xs font-medium text-amber-300 transition flex items-center gap-1.5";
-                label.textContent = "ដាក់ API Key";
-            }
-        }
-
-        function openApiKeyModal() {
-            document.getElementById('input-gemini-key').value = getStoredApiKey();
-            document.getElementById('apikey-modal').classList.remove('hidden');
-        }
-
-        function closeApiKeyModal() {
-            document.getElementById('apikey-modal').classList.add('hidden');
-        }
-
-        function saveGeminiApiKey() {
-            const val = document.getElementById('input-gemini-key').value.trim();
-            if (!val) {
-                localStorage.removeItem('khmercut_gemini_api_key');
-                updateApiKeyButtonState();
-                closeApiKeyModal();
-                showToast('បានលុប API Key ចេញ។');
-                return;
-            }
-            localStorage.setItem('khmercut_gemini_api_key', val);
-            updateApiKeyButtonState();
-            closeApiKeyModal();
-            showToast('បានរក្សាទុក Gemini API Key ដោយជោគជ័យ! ឥឡូវអ្នកអាចបង្កើតសំឡេង Sreymom បានហើយ។');
-        }
-            });
-        }
-
-        // --- TOAST NOTIFICATION (Replaces alert) ---
-        let toastTimeout;
-        function showToast(msg, type = 'info') {
-            const box = document.getElementById('toast-box');
-            const msgEl = document.getElementById('toast-message');
-            const iconEl = document.getElementById('toast-icon');
-            
-            msgEl.textContent = msg;
-            if (type === 'error') {
-                iconEl.className = 'fa-solid fa-circle-exclamation text-rose-400 text-base';
-            } else if (type === 'loading') {
-                iconEl.className = 'fa-solid fa-spinner fa-spin text-cyan-400 text-base';
-            } else {
-                iconEl.className = 'fa-solid fa-circle-check text-cyan-400 text-base';
-            }
-
-            box.classList.remove('translate-y-20', 'opacity-0');
-            clearTimeout(toastTimeout);
-            if (type !== 'loading') {
-                toastTimeout = setTimeout(() => {
-                    box.classList.add('translate-y-20', 'opacity-0');
-                }, 3500);
-            }
-        }
-
-        // --- SRT PARSER & UPLOAD ---
-        function handleSrtUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function (e) {
-                parseAndLoadSRT(e.target.result);
-                showToast(`បានបញ្ចូលឯកសារ "${file.name}" ដោយជោគជ័យ!`);
-            };
-            reader.readAsText(file, 'UTF-8');
-        }
-
-        function srtTimeToSeconds(timeStr) {
-            // Supports 00:00:01,500 or 00:00:01.500
-            const clean = timeStr.trim().replace(',', '.');
-            const parts = clean.split(':');
-            if (parts.length !== 3) return 0;
-            const hours = parseFloat(parts[0]) || 0;
-            const minutes = parseFloat(parts[1]) || 0;
-            const seconds = parseFloat(parts[2]) || 0;
-            return hours * 3600 + minutes * 60 + seconds;
-        }
-
-        function formatSeconds(sec) {
-            const mins = Math.floor(sec / 60);
-            const secs = Math.floor(sec % 60);
-            const tenths = Math.floor((sec % 1) * 10);
-            return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${tenths}`;
-        }
-
-        function parseAndLoadSRT(rawText) {
-            const blocks = rawText.trim().replace(/\r\n/g, '\n').split(/\n\s*\n/);
-            const parsed = [];
-            let maxEnd = 15;
-
-            blocks.forEach((block, idx) => {
-                const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
-                if (lines.length >= 2) {
-                    // Find timestamp line
-                    const timeLineIdx = lines.findIndex(l => l.includes('-->'));
-                    if (timeLineIdx !== -1) {
-                        const [startStr, endStr] = lines[timeLineIdx].split('-->');
-                        const startTime = srtTimeToSeconds(startStr);
-                        const endTime = srtTimeToSeconds(endStr);
-                        const text = lines.slice(timeLineIdx + 1).join(' ');
-                        if (endTime > maxEnd) maxEnd = endTime + 2;
-
-                        parsed.push({
-                            id: `srt-${Date.now()}-${idx}`,
-                            index: idx + 1,
-                            startTime,
-                            endTime,
-                            duration: Math.max(0.5, endTime - startTime),
-                            text,
-                            status: 'idle', // 'idle' | 'generating' | 'ready'
-                            audioClipId: null
-                        });
-                    }
-                }
-            });
-
-            state.srtItems = parsed;
-            state.duration = Math.max(state.duration, Math.ceil(maxEnd));
-            renderSrtList();
-            renderTimeline();
-        }
-
-        // --- RENDER SRT LIST (CLICKABLE FOR TTS) ---
-        function renderSrtList() {
-            const container = document.getElementById('srt-list-container');
-            if (state.srtItems.length === 0) {
-                container.innerHTML = `<div class="text-center py-8 text-slate-500 text-xs">មិនទាន់មានទិន្នន័យ SRT ទេ។ សូមចុច "បញ្ចូល .SRT" ខាងលើ។</div>`;
-                return;
-            }
-
-            container.innerHTML = state.srtItems.map(item => {
-                const isReady = item.status === 'ready';
-                const isGen = item.status === 'generating';
-                
-                return `
-                <div onclick="seekTo(${item.startTime})" class="group p-3 rounded-xl bg-[#1b1d28] hover:bg-[#222534] border ${isReady ? 'border-cyan-500/40' : 'border-[#262936]'} transition cursor-pointer">
-                    <div class="flex items-center justify-between text-[11px] text-slate-400 mb-1.5">
-                        <span class="font-mono bg-[#0f1015] px-2 py-0.5 rounded text-cyan-400">
-                            #${item.index} • ${formatSeconds(item.startTime)} → ${formatSeconds(item.endTime)}
-                        </span>
-                        <div class="flex items-center gap-1.5" onclick="event.stopPropagation()">
-                            ${isReady ? `
-                                <button onclick="playClipAudio('${item.audioClipId}')" class="px-2 py-1 rounded bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 text-[11px] font-medium flex items-center gap-1" title="ស្តាប់សំឡេង">
-                                    <i class="fa-solid fa-play"></i> ស្តាប់
-                                </button>
-                            ` : ''}
-                            <button onclick="generateTTSForSrtItem('${item.id}')" ${isGen ? 'disabled' : ''} class="px-2.5 py-1 rounded-lg ${isReady ? 'bg-[#2a2e3f] text-slate-200 hover:text-white' : 'capcut-cyan font-semibold'} text-[11px] transition flex items-center gap-1 shadow-sm">
-                                ${isGen 
-                                    ? `<i class="fa-solid fa-spinner fa-spin"></i> កំពុងបង្កើត...` 
-                                    : `<i class="fa-solid fa-wand-magic-sparkles"></i> ${isReady ? 'បង្កើតម្តងទៀត' : 'បង្កើតសំឡេង Sreymom'}`
-                                }
-                            </button>
-                        </div>
-                    </div>
-                    <textarea onchange="updateSrtText('${item.id}', this.value)" onclick="event.stopPropagation()" rows="2" class="w-full bg-transparent text-xs text-white focus:bg-[#0f1015] focus:p-1.5 rounded border border-transparent focus:border-cyan-500/40 focus:outline-none resize-none leading-relaxed">${item.text}</textarea>
-                </div>
-                `;
-            }).join('');
-        }
-
-        function updateSrtText(id, newText) {
-            const item = state.srtItems.find(i => i.id === id);
-            if (item) {
-                item.text = newText;
-                renderTimeline();
-            }
-        }
-
-        // --- GEMINI TTS ENGINE (KHMER SREYMOM / PISETH) ---
-        async function callGeminiKhmerTTS(text, voicePersona = 'Sreymom', style = 'natural') {
-            const apiKey = getStoredApiKey();
-            if (!apiKey) {
-                openApiKeyModal();
-                throw new Error("MISSING_API_KEY");
-            }
-
-            // Map Khmer Persona to Gemini Prebuilt Voices
-            // Sreymom -> Aoede (Clear, natural female tone)
-            // Piseth -> Charon (Clear male tone)
-            const geminiVoice = voicePersona === 'Piseth' ? 'Charon' : 'Aoede';
-            
-            const stylePrompts = {
-                natural: 'Read this Khmer text naturally and clearly with proper Khmer pronunciation:',
-                cheerful: 'Read this Khmer text cheerfully and warmly:',
-                newscast: 'Read this Khmer text in a professional Khmer news anchor tone:',
-                storytelling: 'Read this Khmer text expressively like a storyteller:'
-            };
-
-            const promptText = `${stylePrompts[style] || stylePrompts.natural} "${text}"`;
-
-            const payload = {
-                contents: [{
-                    parts: [{ text: promptText }]
-                }],
-                generationConfig: {
-                    responseModalities: ["AUDIO"],
-                    speechConfig: {
-                        voiceConfig: {
-                            prebuiltVoiceConfig: { voiceName: geminiVoice }
-                        }
-                    }
-                },
-                model: "gemini-2.5-flash-preview-tts"
-            };
-
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
-
-            // Exponential backoff retry logic
-            let delay = 1000;
-            for (let attempt = 0; attempt < 4; attempt++) {
-                try {
-                    const response = await fetch(apiUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-
-                    if (!response.ok) {
-                        const errData = await response.json().catch(() => ({}));
-                        throw new Error(errData?.error?.message || `HTTP ${response.status}`);
-                    }
-                    }
-                },
-                model: "gemini-2.5-flash-preview-tts"
-            };
-
-            const apiKey = ""; // Provided at runtime
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
-
-            // Exponential backoff retry logic
-            let delay = 1000;
-            for (let attempt = 0; attempt < 4; attempt++) {
-                try {
-                    const response = await fetch(apiUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}`);
-                    }
-
-                    const result = await response.json();
-                    const part = result?.candidates?.[0]?.content?.parts?.[0];
-                    const audioData = part?.inlineData?.data;
-                    const mimeType = part?.inlineData?.mimeType;
-
-                    if (audioData && mimeType && mimeType.startsWith("audio/")) {
-                        const rateMatch = mimeType.match(/rate=(\d+)/);
-                        const sampleRate = rateMatch ? parseInt(rateMatch[1], 10) : 24000;
-                        const pcmBuffer = base64ToArrayBuffer(audioData);
-                        const pcm16 = new Int16Array(pcmBuffer);
-                        const wavBlob = pcmToWav(pcm16, sampleRate);
-                        const audioUrl = URL.createObjectURL(wavBlob);
-                        const durationSec = pcm16.length / sampleRate;
-                        return { audioUrl, duration: durationSec };
-                    } else {
-                        throw new Error("Invalid audio response structure");
-                    }
-                } catch (err) {
-                    if (attempt === 3) throw err;
-                    await new Promise(res => setTimeout(res, delay));
-                    delay *= 2;
-                }
-            }
-        }
-
-        // Convert Base64 to ArrayBuffer
-        function base64ToArrayBuffer(base64) {
-            const binaryString = atob(base64);
-            const len = binaryString.length;
-            const bytes = new Uint8Array(len);
-            for (let i = 0; i < len; i++) {
-                bytes[i] = binaryString.charCodeAt(i);
-            }
-            return bytes.buffer;
-        }
-
-        // Convert Signed 16-bit PCM to WAV Blob
-        function pcmToWav(pcm16, sampleRate) {
-            const numChannels = 1;
-            const byteRate = sampleRate * numChannels * 2;
-            const blockAlign = numChannels * 2;
-            const dataSize = pcm16.length * 2;
-            const buffer = new ArrayBuffer(44 + dataSize);
-            const view = new DataView(buffer);
-
-            function writeString(view, offset, string) {
-                for (let i = 0; i < string.length; i++) {
-                    view.setUint8(offset + i, string.charCodeAt(i));
-                }
-            }
-
-            writeString(view, 0, 'RIFF');
-            view.setUint32(4, 36 + dataSize, true);
-            writeString(view, 8, 'WAVE');
-            writeString(view, 12, 'fmt ');
-            view.setUint32(16, 16, true);
-            view.setUint16(20, 1, true); // PCM
-            view.setUint16(22, numChannels, true);
-            view.setUint32(24, sampleRate, true);
-            view.setUint32(28, byteRate, true);
-            view.setUint16(32, blockAlign, true);
-            view.setUint16(34, 16, true); // 16-bit
-            writeString(view, 36, 'data');
-            view.setUint32(40, dataSize, true);
-
-            let offset = 44;
-            for (let i = 0; i < pcm16.length; i++, offset += 2) {
-                view.setInt16(offset, pcm16[i], true);
-            }
-
-            return new Blob([view], { type: 'audio/wav' });
-        }
-
-        // --- GENERATE TTS FOR A SINGLE SRT LINE ---
-        async function generateTTSForSrtItem(srtId) {
-            const item = state.srtItems.find(i => i.id === srtId);
-            if (!item || item.status === 'generating') return;
-
-            const voicePersona = document.getElementById('srt-voice-select').value;
-            item.status = 'generating';
-            renderSrtList();
-            showToast(`កំពុងបង្កើតសំឡេង ${voicePersona} សម្រាប់ឃ្លា #${item.index}...`, 'loading');
-
-            try {
-                const { audioUrl, duration } = await callGeminiKhmerTTS(item.text, voicePersona, 'natural');
-                
-                // Remove old audio clip if regenerated
-                if (item.audioClipId) {
-                    state.audioClips = state.audioClips.filter(c => c.id !== item.audioClipId);
-                }
-
-                const newClipId = `aud-${Date.now()}`;
-                const audioObj = new Audio(audioUrl);
-                
-                const clip = {
-                    id: newClipId,
-                    srtId: item.id,
-                    text: item.text,
-                    voice: voicePersona,
-                    startTime: item.startTime,
-                    duration: duration || item.duration,
-                    audioUrl: audioUrl,
-                    audioEl: audioObj
-                };
-
-                state.audioClips.push(clip);
-                item.status = 'ready';
-                item.audioClipId = newClipId;
-
-                // Update project duration if needed
-                if (clip.startTime + clip.duration > state.duration) {
-                    state.duration = Math.ceil(clip.startTime + clip.duration + 1);
-                }
-
-                renderSrtList();
-                renderTimeline();
-                renderGeneratedClipsList();
-                showToast(`បង្កើតសំឡេង ${voicePersona} ឃ្លា #${item.index} រួចរាល់!`);
-                
-                // Automatically play preview of this line
-                playClipAudio(newClipId);
-
-            } catch (error) {
-                item.status = 'idle';
-                renderSrtList();
-                if (error.message === 'MISSING_API_KEY') {
-                    showToast('សូមបញ្ចូល Gemini API Key ជាមុនសិន!', 'error');
-                } else {
-                    showToast(`បរាជ័យ: ${error.message} (សូមពិនិត្យ API Key ឬអ៊ីនធឺណិត)`, 'error');
-                }
-            }
-        }
-
-        // --- BATCH GENERATE ALL SRT LINES ---
-        async function generateAllSrtTTS() {
-            if (state.srtItems.length === 0) {
-                showToast('មិនមានឃ្លា SRT ដើម្បីបង្កើតទេ!', 'error');
-                return;
-            }
-            const btn = document.getElementById('btn-generate-all');
-            btn.disabled = true;
-            btn.classList.add('opacity-50');
-
-            for (const item of state.srtItems) {
-                if (item.status !== 'ready') {
-                    await generateTTSForSrtItem(item.id);
-                }
-            }
-
-            btn.disabled = false;
-            btn.classList.remove('opacity-50');
-            showToast('បានបង្កើតសំឡេង Sreymom សម្រាប់គ្រប់ឃ្លា SRT ទាំងអស់!');
-        }
-
-        // --- STANDALONE TTS PANEL ACTIONS ---
-        async function previewStandaloneTTS() {
-            const text = document.getElementById('standalone-text').value.trim();
-            if (!text) return showToast('សូមសរសេរអត្ថបទជាមុនសិន!', 'error');
-
-            const voice = document.getElementById('standalone-voice').value;
-            const style = document.getElementById('standalone-style').value;
-            const speed = parseFloat(document.getElementById('standalone-speed').value);
-
-            showToast(`កំពុងបង្កើតសំឡេងសាកល្បង (${voice})...`, 'loading');
-            try {
-                const { audioUrl } = await callGeminiKhmerTTS(text, voice, style);
-                const audio = new Audio(audioUrl);
-                audio.playbackRate = speed;
-                showSpeakingIndicator(voice);
-                audio.onended = () => hideSpeakingIndicator();
-                audio.play();
-                showToast('កំពុងចាក់សំឡេងសាកល្បង...');
-            } catch (e) {
-                if (e.message !== 'MISSING_API_KEY') {
-                    showToast(`បរាជ័យ: ${e.message}`, 'error');
-                }
-            }
-        }
-
-        async function addStandaloneTTSToTimeline() {
-            const text = document.getElementById('standalone-text').value.trim();
-            if (!text) return showToast('សូមសរសេរអត្ថបទជាមុនសិន!', 'error');
-
-            const voice = document.getElementById('standalone-voice').value;
-            const style = document.getElementById('standalone-style').value;
-            const speed = parseFloat(document.getElementById('standalone-speed').value);
-
-            showToast(`កំពុងបង្កើតសំឡេង ${voice} ដាក់ចូល Timeline...`, 'loading');
-            try {
-                const { audioUrl, duration } = await callGeminiKhmerTTS(text, voice, style);
-                const adjustedDuration = duration / speed;
-                const audioObj = new Audio(audioUrl);
-                audioObj.playbackRate = speed;
-
-                const newClipId = `aud-custom-${Date.now()}`;
-                const clip = {
-                    id: newClipId,
-                    srtId: null,
-                    text: text,
-                    voice: voice,
-                    startTime: state.currentTime,
-                    duration: adjustedDuration,
-                    audioUrl: audioUrl,
-                    audioEl: audioObj
-                };
-
-                state.audioClips.push(clip);
-                if (clip.startTime + clip.duration > state.duration) {
-                    state.duration = Math.ceil(clip.startTime + clip.duration + 1);
-                }
-
-                renderTimeline();
-                renderGeneratedClipsList();
-                showToast('បានបញ្ចូលសំឡេងទៅក្នុង Timeline ដោយជោគជ័យ!');
-            } catch (e) {
-                if (e.message !== 'MISSING_API_KEY') {
-                    showToast(`បរាជ័យ: ${e.message}`, 'error');
-                }
-            }
-        }
-
-        async function addStandaloneTTSToTimeline() {
-            const text = document.getElementById('standalone-text').value.trim();
-            if (!text) return showToast('សូមសរសេរអត្ថបទជាមុនសិន!', 'error');
-
-            const voice = document.getElementById('standalone-voice').value;
-            const style = document.getElementById('standalone-style').value;
-            const speed = parseFloat(document.getElementById('standalone-speed').value);
-
-            showToast(`កំពុងបង្កើតសំឡេង ${voice} ដាក់ចូល Timeline...`, 'loading');
-            try {
-                const { audioUrl, duration } = await callGeminiKhmerTTS(text, voice, style);
-                const adjustedDuration = duration / speed;
-                const audioObj = new Audio(audioUrl);
-                audioObj.playbackRate = speed;
-
-                const newClipId = `aud-custom-${Date.now()}`;
-                const clip = {
-                    id: newClipId,
-                    srtId: null,
-                    text: text,
-                    voice: voice,
-                    startTime: state.currentTime,
-                    duration: adjustedDuration,
-                    audioUrl: audioUrl,
-                    audioEl: audioObj
-                };
-
-                state.audioClips.push(clip);
-                if (clip.startTime + clip.duration > state.duration) {
-                    state.duration = Math.ceil(clip.startTime + clip.duration + 1);
-                }
-
-                renderTimeline();
-                renderGeneratedClipsList();
-                showToast('បានបញ្ចូលសំឡេងទៅក្នុង Timeline ដោយជោគជ័យ!');
-            } catch (e) {
-                showToast('បរាជ័យក្នុងការបង្កើតសំឡេង។', 'error');
-            }
-        }
-
-        function renderGeneratedClipsList() {
-            const list = document.getElementById('generated-clips-list');
-            if (state.audioClips.length === 0) {
-                list.innerHTML = `<p class="text-xs text-slate-500 italic text-center py-4">មិនទាន់មានសំឡេងដែលបានបង្កើតនៅឡើយទេ</p>`;
-                return;
-            }
-            list.innerHTML = state.audioClips.map(clip => `
-                <div class="p-2.5 rounded-lg bg-[#161821] border border-[#262936] flex items-center justify-between gap-2">
-                    <div class="min-w-0 flex-1">
-                        <div class="flex items-center gap-1.5 text-[10px] text-cyan-400 font-semibold">
-                            <i class="fa-solid fa-microphone"></i> ${clip.voice} • ${formatSeconds(clip.startTime)}
-                        </div>
-                        <p class="text-xs text-slate-300 truncate mt-0.5">${clip.text}</p>
-                    </div>
-                    <div class="flex items-center gap-1 shrink-0">
-                        <button onclick="playClipAudio('${clip.id}')" class="w-7 h-7 rounded bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 flex items-center justify-center text-xs" title="ស្តាប់">
-                            <i class="fa-solid fa-play"></i>
-                        </button>
-                        <a href="${clip.audioUrl}" download="KhmerTTS_${clip.voice}.wav" class="w-7 h-7 rounded bg-[#232634] text-slate-300 hover:text-white flex items-center justify-center text-xs" title="ទាញយក WAV">
-                            <i class="fa-solid fa-download"></i>
-                        </a>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        function playClipAudio(clipId) {
-            const clip = state.audioClips.find(c => c.id === clipId);
-            if (!clip || !clip.audioEl) return;
-            
-            stopAllActiveAudio();
-            clip.audioEl.currentTime = 0;
-            showSpeakingIndicator(clip.voice);
-            clip.audioEl.onended = () => hideSpeakingIndicator();
-            clip.audioEl.play();
-            state.activeAudioPlayers.add(clip.audioEl);
-        }
-
-        function stopAllActiveAudio() {
-            state.activeAudioPlayers.forEach(aud => {
-                aud.pause();
-                aud.currentTime = 0;
-            });
-            state.activeAudioPlayers.clear();
-            hideSpeakingIndicator();
-        }
-
-        function showSpeakingIndicator(voiceName) {
-            document.getElementById('speaking-voice-label').textContent = `${voiceName} កំពុងនិយាយ...`;
-            speakingBadge.classList.remove('hidden');
-        }
-
-        function hideSpeakingIndicator() {
-            speakingBadge.classList.add('hidden');
-        }
-
-        // --- VIDEO UPLOAD & MEDIA LIBRARY ---
-        function handleVideoUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            const url = URL.createObjectURL(file);
-            mainVideo.src = url;
-            mainVideo.load();
-            
-            mainVideo.onloadedmetadata = () => {
-                const dur = Math.ceil(mainVideo.duration) || 15;
-                state.videoClips = [{
-                    id: `vid-${Date.now()}`,
-                    name: file.name,
-                    startTime: 0,
-                    duration: dur,
-                    url: url
-                }];
-                state.duration = Math.max(state.duration, dur);
-                renderMediaLibrary();
-                renderTimeline();
-                showToast(`បានបញ្ចូលវីដេអូ "${file.name}"!`);
-            };
-        }
-
-        function renderMediaLibrary() {
-            const lib = document.getElementById('media-library');
-            lib.innerHTML = state.videoClips.map(v => `
-                <div class="rounded-xl bg-[#1b1d28] border border-[#262936] overflow-hidden">
-                    <div class="h-20 bg-slate-900 flex items-center justify-center relative">
-                        <i class="fa-solid fa-film text-2xl text-cyan-500/50"></i>
-                        <span class="absolute bottom-1 right-1 bg-black/75 text-[10px] px-1.5 rounded text-white">${formatSeconds(v.duration)}</span>
-                    </div>
-                    <div class="p-2">
-                        <p class="text-[11px] text-white truncate font-medium">${v.name}</p>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        // --- TIMELINE RENDERING & INTERACTION ---
-        function renderTimeline() {
-            const pps = state.pixelsPerSecond;
-            const totalWidth = Math.max(1000, (state.duration + 3) * pps);
-            timelineContent.style.width = `${totalWidth}px`;
-            totalTimeDisplay.textContent = formatSeconds(state.duration);
-
-            // 1. Render Ruler Marks
-            const ruler = document.getElementById('timeline-ruler');
-            ruler.style.backgroundSize = `${pps}px 100%`;
-            let rulerHtml = '';
-            for (let s = 0; s <= state.duration + 2; s++) {
-                rulerHtml += `<span style="position:absolute; left:${s * pps + 4}px;">00:${String(s).padStart(2, '0')}</span>`;
-            }
-            ruler.innerHTML = rulerHtml;
-
-            // 2. Render Video Track
-            const trackVideo = document.getElementById('track-video');
-            trackVideo.innerHTML = state.videoClips.map(v => `
-                <div onclick="selectClip('video', '${v.id}', event)" 
-                     style="left: ${v.startTime * pps}px; width: ${v.duration * pps}px;"
-                     class="absolute h-11 rounded-lg bg-blue-600/30 border ${state.selectedItem?.id === v.id ? 'border-white ring-2 ring-cyan-400' : 'border-blue-500/60'} px-2.5 flex items-center gap-2 overflow-hidden cursor-pointer">
-                    <i class="fa-solid fa-video text-blue-300 text-xs shrink-0"></i>
-                    <span class="text-xs text-blue-100 font-medium truncate">${v.name}</span>
-                </div>
-            `).join('');
-
-            // 3. Render SRT Subtitles Track
-            const trackSrt = document.getElementById('track-srt');
-            trackSrt.innerHTML = state.srtItems.map(item => `
-                <div onclick="selectClip('srt', '${item.id}', event)"
-                     style="left: ${item.startTime * pps}px; width: ${Math.max(24, item.duration * pps)}px;"
-                     class="absolute h-9 rounded-md bg-amber-500/25 border ${state.selectedItem?.id === item.id ? 'border-white ring-2 ring-amber-400' : 'border-amber-500/60'} px-2 flex items-center overflow-hidden cursor-pointer hover:bg-amber-500/35 transition"
-                     title="${item.text}">
-                    <span class="text-[11px] text-amber-200 truncate">${item.text}</span>
-                </div>
-            `).join('');
-
-            // 4. Render Khmer TTS Audio Track
-            const trackAudio = document.getElementById('track-audio');
-            trackAudio.innerHTML = state.audioClips.map(clip => `
-                <div onclick="selectClip('audio', '${clip.id}', event)"
-                     style="left: ${clip.startTime * pps}px; width: ${Math.max(30, clip.duration * pps)}px;"
-                     class="absolute h-11 rounded-lg bg-cyan-500/25 border ${state.selectedItem?.id === clip.id ? 'border-white ring-2 ring-cyan-400' : 'border-cyan-400/70'} px-2.5 flex flex-col justify-center overflow-hidden cursor-pointer hover:bg-cyan-500/35 transition">
-                    <div class="flex items-center gap-1 text-[10px] text-cyan-300 font-bold truncate">
-                        <i class="fa-solid fa-volume-high"></i>
-                        <span>${clip.voice}</span>
-                    </div>
-                    <span class="text-[10px] text-white/90 truncate">${clip.text}</span>
-                </div>
-            `).join('');
-
-            updatePlayheadPosition();
-        }
-
-        function updateTimelineZoom(val) {
-            state.pixelsPerSecond = parseInt(val, 10);
-            renderTimeline();
-        }
-
-        function selectClip(type, id, event) {
-            event.stopPropagation();
-            state.selectedItem = { type, id };
-            renderTimeline();
-            
-            // If user clicks an SRT block on timeline, highlight or offer quick TTS
-            if (type === 'srt') {
-                const item = state.srtItems.find(i => i.id === id);
-                if (item) seekTo(item.startTime);
-            } else if (type === 'audio') {
-                const clip = state.audioClips.find(c => c.id === id);
-                if (clip) seekTo(clip.startTime);
-            }
-        }
-
-        function deleteSelectedClip() {
-            if (!state.selectedItem) {
-                showToast('សូមចុចជ្រើសរើសផ្ទាំងណាមួយលើ Timeline ជាមុនសិន!', 'error');
-                return;
-            }
-            const { type, id } = state.selectedItem;
-            if (type === 'audio') {
-                state.audioClips = state.audioClips.filter(c => c.id !== id);
-                // Reset status on linked SRT item if any
-                state.srtItems.forEach(s => {
-                    if (s.audioClipId === id) {
-                        s.status = 'idle';
-                        s.audioClipId = null;
-                    }
-                });
-                renderSrtList();
-                renderGeneratedClipsList();
-            } else if (type === 'srt') {
-                state.srtItems = state.srtItems.filter(s => s.id !== id);
-                renderSrtList();
-            }
-            state.selectedItem = null;
-            renderTimeline();
-            showToast('បានលុបចេញពី Timeline រួចរាល់។');
-        }
-
-        function splitAtPlayhead() {
-            showToast(`បានកាត់នៅត្រង់នាទី ${formatSeconds(state.currentTime)}`);
-        }
-
-        function handleTimelineClick(event) {
-            const rect = timelineContent.getBoundingClientRect();
-            const clickX = event.clientX - rect.left;
-            const newTime = Math.max(0, Math.min(state.duration, clickX / state.pixelsPerSecond));
-            seekTo(newTime);
-        }
-
-        function seekTo(time) {
-            state.currentTime = Math.max(0, Math.min(state.duration, time));
-            if (mainVideo.duration) {
-                mainVideo.currentTime = state.currentTime % mainVideo.duration;
-            }
-            stopAllActiveAudio();
-            updatePlayheadPosition();
-            updateActiveSubtitle();
-        }
-
-        function updatePlayheadPosition() {
-            const pos = state.currentTime * state.pixelsPerSecond;
-            playheadEl.style.left = `${pos}px`;
-            currentTimeDisplay.textContent = formatSeconds(state.currentTime);
-        }
-
-        // --- PLAYBACK ENGINE (SYNCHRONIZES VIDEO + SUBTITLES + KHMER TTS AUDIO) ---
-        let lastFrameTime = performance.now();
-        let triggeredAudioIds = new Set();
-
-        function togglePlayPause() {
-            state.isPlaying = !state.isPlaying;
-            const icon = document.getElementById('play-pause-icon');
-            if (state.isPlaying) {
-                if (state.currentTime >= state.duration) {
-                    state.currentTime = 0;
-                    triggeredAudioIds.clear();
-                }
-                icon.className = 'fa-solid fa-pause';
-                mainVideo.play().catch(() => {});
-                lastFrameTime = performance.now();
-            } else {
-                icon.className = 'fa-solid fa-play ml-0.5';
-                mainVideo.pause();
-                stopAllActiveAudio();
-                triggeredAudioIds.clear();
-            }
-        }
-
-        function skipTime(delta) {
-            triggeredAudioIds.clear();
-            seekTo(state.currentTime + delta);
-        }
-
-        function playbackLoop(now) {
-            const dt = (now - lastFrameTime) / 1000;
-            lastFrameTime = now;
-
-            if (state.isPlaying) {
-                state.currentTime += dt;
-                if (state.currentTime >= state.duration) {
-                    state.currentTime = state.duration;
-                    togglePlayPause(); // Stop at end
-                } else {
-                    updatePlayheadPosition();
-                    updateActiveSubtitle();
-                    triggerTimelineAudioClips();
-                }
-            }
-
-            requestAnimationFrame(playbackLoop);
-        }
-
-        function updateActiveSubtitle() {
-            const activeSrt = state.srtItems.find(
-                item => state.currentTime >= item.startTime && state.currentTime <= item.endTime
-            );
-            const wrapper = document.getElementById('live-subtitle-wrapper');
-            if (activeSrt) {
-                liveSubtitleText.textContent = activeSrt.text;
-                wrapper.classList.remove('opacity-0');
-            } else {
-                wrapper.classList.add('opacity-0');
-            }
-        }
-
-        function triggerTimelineAudioClips() {
-            state.audioClips.forEach(clip => {
-                // Trigger if playhead enters clip window within 0.15s tolerance
-                if (state.currentTime >= clip.startTime && state.currentTime < clip.startTime + 0.25) {
-                    if (!triggeredAudioIds.has(clip.id)) {
-                        triggeredAudioIds.add(clip.id);
-                        clip.audioEl.currentTime = Math.max(0, state.currentTime - clip.startTime);
-                        showSpeakingIndicator(clip.voice);
-                        clip.audioEl.onended = () => hideSpeakingIndicator();
-                        clip.audioEl.play().catch(() => {});
-                        state.activeAudioPlayers.add(clip.audioEl);
-                    }
-                }
-            });
-        }
-
-        // --- PLAYER & SUBTITLE STYLING CONTROLS ---
-        function setAspectRatio(ratio) {
-            const stage = document.getElementById('video-stage');
-            const btn16 = document.getElementById('ratio-16-9');
-            const btn9 = document.getElementById('ratio-9-16');
-
-            if (ratio === '9:16') {
-                stage.classList.remove('aspect-video', 'max-w-2xl');
-                stage.classList.add('aspect-[9/16]', 'h-full', 'max-w-[260px]');
-                btn9.className = 'px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 text-[10px]';
-                btn16.className = 'px-2 py-0.5 rounded bg-[#1a1c26] hover:bg-[#262936] text-[10px]';
-            } else {
-                stage.classList.remove('aspect-[9/16]', 'h-full', 'max-w-[260px]');
-                stage.classList.add('aspect-video', 'max-w-2xl');
-                btn16.className = 'px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 text-[10px]';
-                btn9.className = 'px-2 py-0.5 rounded bg-[#1a1c26] hover:bg-[#262936] text-[10px]';
-            }
-        }
-
-        function toggleMuteVideo() {
-            state.videoMuted = !state.videoMuted;
-            mainVideo.muted = state.videoMuted;
-            const icon = document.getElementById('video-vol-icon');
-            const text = document.getElementById('video-vol-text');
-            if (state.videoMuted) {
-                icon.className = 'fa-solid fa-volume-xmark text-rose-400';
-                text.textContent = 'បិទសំឡេងវីដេអូដើម';
-            } else {
-                icon.className = 'fa-solid fa-volume-high text-emerald-400';
-                text.textContent = 'បើកសំឡេងវីដេអូដើម';
-            }
-        }
-
-        function updateSubtitleStyle() {
-            const size = document.getElementById('sub-font-size').value;
-            const hasBg = document.getElementById('sub-bg-toggle').checked;
-            liveSubtitleText.style.fontSize = `${size}px`;
-            if (hasBg) {
-                liveSubtitleText.classList.add('bg-black/75', 'backdrop-blur-sm');
-            } else {
-                liveSubtitleText.classList.remove('bg-black/75', 'backdrop-blur-sm');
-            }
-        }
-
-        function setSubColor(hex) {
-            liveSubtitleText.style.color = hex;
-        }
-
-        // --- SAMPLE PROJECT & EXPORT MODAL ---
-        function loadSampleProject() {
-            parseAndLoadSRT(SAMPLE_KHMER_SRT);
-            switchTab('srt');
-            showToast('បានផ្ទុកគម្រោង SRT ភាសាខ្មែរគំរូរួចរាល់!');
-        }
-
-        function openExportModal() {
-            document.getElementById('export-audio-count').textContent = `${state.audioClips.length} ឃ្លា`;
-            document.getElementById('export-progress-container').classList.add('hidden');
-            document.getElementById('export-modal').classList.remove('hidden');
-        }
-
-        function closeExportModal() {
-            document.getElementById('export-modal').classList.add('hidden');
-        }
-
-        function startSimulatedExport() {
-            const progContainer = document.getElementById('export-progress-container');
-            const bar = document.getElementById('export-bar');
-            const percent = document.getElementById('export-percent');
-            const btn = document.getElementById('btn-confirm-export');
-
-            progContainer.classList.remove('hidden');
-            btn.disabled = true;
-            let p = 0;
-            const interval = setInterval(() => {
-                p += 10;
-                bar.style.width = `${p}%`;
-                percent.textContent = `${p}%`;
-                if (p >= 100) {
-                    clearInterval(interval);
-                    btn.disabled = false;
-                    closeExportModal();
-                    showToast('ការនាំចេញវីដេអូ KhmerCut រួចរាល់ 100%!');
-                }
-            }, 200);
-        }
-    </script>
-</body>
-</html>
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Khmer Cut – video editor with Khmer voice</title>
+<link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#0f1c1a"><link rel="apple-touch-icon" href="/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Khmer:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#e9f0ed;--panel:#fff;--line:#c5d3ce;--text:#15302b;--mute:#5d7770;--acc:#c77d00;--accfg:#fff;--voice:#0f8f78;--textc:#b4416b;--vid:#35607a;--stage:#0c1715}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1c1a;--panel:#172725;--line:#2a4440;--text:#e6f0ed;--mute:#8fb0a8;--acc:#ffb703;--accfg:#1a1200;--voice:#4fd6bb;--textc:#f08bb0;--vid:#6aa5c4;--stage:#050a09}}
+:root[data-theme="dark"]{--bg:#0f1c1a;--panel:#172725;--line:#2a4440;--text:#e6f0ed;--mute:#8fb0a8;--acc:#ffb703;--accfg:#1a1200;--voice:#4fd6bb;--textc:#f08bb0;--vid:#6aa5c4;--stage:#050a09}
+*,*::before,*::after{box-sizing:inherit}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font:14px/1.5 "Noto Sans Khmer",system-ui,-apple-system,"Segoe UI",sans-serif}
+header{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel)}
+h1{font-size:18px;margin:0;font-weight:800;letter-spacing:.2px}
+header span{color:var(--mute);font-size:13px}.sp{flex:1}
+h2{font-size:13px;margin:0 0 8px;font-weight:600;color:var(--mute)}
+button,.btn{font:inherit;border:1px solid var(--line);background:var(--panel);color:var(--text);padding:7px 12px;border-radius:8px;cursor:pointer;display:inline-block;text-align:center}
+button:hover,.btn:hover{border-color:var(--acc)}
+button:focus-visible,.btn:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible,.blk:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.pri{background:var(--acc);color:var(--accfg);border-color:var(--acc);font-weight:600}
+main{display:grid;grid-template-columns:300px 1fr;gap:12px;padding:12px 16px}
+aside{display:flex;flex-direction:column;gap:12px;min-width:0}
+aside section{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px}
+aside section button,aside section .btn{width:100%;margin-bottom:6px}
+.note{color:var(--mute);font-size:13px;margin:6px 0 0}
+#media{display:flex;flex-direction:column;gap:4px;margin-top:6px;max-height:120px;overflow:auto}
+#media div{display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:4px 6px;border-radius:6px;background:var(--bg)}
+#media button{width:auto;margin:0;padding:0 8px}
+label.f{display:block;font-size:12px;color:var(--mute);margin-bottom:8px}
+label.f input,label.f textarea,label.f select{display:block;width:100%;margin-top:2px;font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px}
+label.f input[type=color]{padding:0;height:32px}
+.row{display:flex;gap:6px;flex-wrap:wrap}.row button{flex:1;margin:0!important;width:auto!important}
+.stage{background:var(--stage);border-radius:10px;display:flex;flex-direction:column;align-items:center;padding:10px;min-width:0}
+canvas{max-width:100%;max-height:56vh;background:#000;border-radius:6px}
+.bar{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap;justify-content:center;color:#cfe3de}
+.bar button{background:transparent;color:#e6f0ed;border-color:#2f4a46}
+#time{font-variant-numeric:tabular-nums;min-width:150px;text-align:center}
+#tl{margin:0 16px 16px;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow-x:auto;touch-action:pan-x}
+#tli{position:relative;padding-bottom:6px;min-height:190px;cursor:crosshair}
+.ruler{height:24px;position:relative;border-bottom:1px solid var(--line)}
+.ruler i{position:absolute;top:0;height:100%;border-left:1px solid var(--line);font-style:normal;font-size:11px;color:var(--mute);padding-left:3px}
+.track{height:46px;position:relative;border-bottom:1px dashed var(--line)}
+.track b{position:sticky;left:0;z-index:3;display:inline-block;width:64px;height:100%;background:var(--panel);font-size:12px;font-weight:600;color:var(--mute);padding:12px 8px;border-right:1px solid var(--line)}
+.blk{position:absolute;top:6px;height:34px;border-radius:6px;padding:6px 8px;color:#fff;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;border:2px solid transparent;user-select:none}
+.blk.clip{background:var(--vid)}.blk.text{background:var(--textc);cursor:grab}.blk.voice{background:var(--voice);color:#04201a;cursor:grab}
+.blk.audio{background:#7a5bb5;cursor:grab}.blk.sel{border-color:var(--text)}
+#ph{position:absolute;top:0;bottom:0;width:2px;background:var(--acc);z-index:5;pointer-events:none}
+#ph::before{content:"";position:absolute;top:0;left:-5px;border:6px solid transparent;border-top-color:var(--acc)}
+@media (max-width:860px){main{grid-template-columns:1fr}header span{display:none}}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+</style></head>
+<body>
+<header><h1>Khmer Cut</h1><span>Video editor with Khmer voice</span><div class="sp"></div><button id="exp" class="pri">Export video</button></header>
+<main>
+<aside>
+<section><h2>Media</h2><label class="btn" for="file" tabindex="0">Import video or photo</label><input id="file" type="file" accept="video/*,image/*" multiple hidden><div id="media"></div></section>
+<section><h2>Add to timeline</h2><button id="addT">Add text</button><button id="addV">Add Khmer voice + caption</button><label class="btn" for="aud" tabindex="0">Import audio (MP3/WAV voice or music)</label><input id="aud" type="file" accept="audio/*" multiple hidden><p class="note" id="vstat"></p></section>
+<section id="sst"><h2>Subtitles (.srt)</h2><label class="btn" for="srt" tabindex="0">Import .srt or .vtt</label><input id="srt" type="file" accept=".srt,.vtt,text/plain" hidden><button id="srtx">Export .srt</button><label class="f">Size (all subtitles)<input data-s="size" type="number" value="56" min="20" max="200"></label><label class="f">Height on screen (%)<input data-s="y" type="number" value="88" min="5" max="95"></label><label class="f">Colour<input data-s="color" type="color" value="#ffffff"></label><label class="f">Voice for subtitles<select id="gv"></select></label><button id="vall">Make Khmer voice for all subtitles</button><button id="vclr">Remove voices made from subtitles</button><button id="vaz" class="pri">Generate Sreymom voice (Azure)</button><label class="f"><input id="spk" type="checkbox" checked style="display:inline;width:auto;margin:0 6px 0 0">Speak a subtitle when I click it</label><button id="srtc">Remove all subtitles</button><p class="note" id="sstat">Imported cues appear on the Text track. Voice captions are included in the export.</p></section>
+<section><h2>Selected item</h2><div id="ib"><p class="note">Select a clip, text or voice on the timeline to edit it.</p></div></section>
+</aside>
+<div class="stage"><canvas id="cv" width="1280" height="720"></canvas>
+<div class="bar"><button id="rs" aria-label="Back to start">⏮</button><button id="pl">Play</button><span id="time">0:00 / 0:05</span><button id="ar">16:9</button><button id="zo" aria-label="Zoom timeline out">−</button><button id="zf" aria-label="Fit whole project in timeline">Fit</button><button id="zi" aria-label="Zoom timeline in">+</button></div></div>
+</main>
+<div id="tl"><div id="tli"></div></div>
+<script>
+const $=s=>document.querySelector(s),LEFT=70;
+const S={clips:[],texts:[],voices:[],aud:[],t:0,playing:false,sel:null,pps:40,vl:[]};
+let uid=0,rec=null,actx=null,adest=null;
+const cv=$('#cv'),cx=cv.getContext('2d'),seg=window.Intl&&Intl.Segmenter?new Intl.Segmenter('km',{granularity:'grapheme'}):null;
+const arr=k=>k==='clip'?S.clips:k==='text'?S.texts:k==='audio'?S.aud:S.voices;
+const total=()=>{const m=Math.max(S.clips.reduce((a,c)=>a+c.dur,0),...S.texts.map(t=>t.start+t.dur),...S.voices.map(v=>v.start+vd(v)),...S.aud.map(a=>a.start+a.dur));return m>0?m:5};
+const vd=v=>Math.max(1.5,[...v.text].length/(12*v.rate));
+const fmt=s=>{s=Math.floor(s);const h=Math.floor(s/3600),m=Math.floor(s/60)%60,x=s%60;return(h?h+':'+String(m).padStart(2,'0'):m)+':'+String(x).padStart(2,'0')};
+const get=()=>S.sel&&arr(S.sel.k).find(x=>x.id===S.sel.id);
+const km=()=>S.vl.find(v=>/sreymom/i.test(v.name))||S.vl.find(v=>/^km/i.test(v.lang));
+function layout(){let t=0;S.clips.forEach(c=>{c.start=t;t+=c.dur})}
+function loadVoices(){S.vl=speechSynthesis.getVoices();const k=km();
+ $('#vstat').textContent=k?'Khmer voice ready: '+k.name+'.':'No Khmer voice found. Open this page in Microsoft Edge to get Sreymom (the Clipchamp voice), or add Khmer in your system speech settings.';if(S.sel)inspect();fillGv()}
+if('speechSynthesis' in window){speechSynthesis.onvoiceschanged=loadVoices;loadVoices()}else $('#vstat').textContent='This browser has no speech synthesis. Try Chrome or Edge.';
+
+$('#file').onchange=e=>{[...e.target.files].forEach(addMedia);e.target.value=''};
+$('#file+*,label[for=file]').onkeydown=e=>{if(e.key==='Enter')$('#file').click()};
+function addMedia(f){const url=URL.createObjectURL(f),id=++uid;
+ if(f.type.startsWith('image')){const el=new Image();el.onload=()=>push({id,type:'image',el,url,name:f.name,in:0,dur:4});el.src=url}
+ else{const el=document.createElement('video');el.preload='metadata';el.playsInline=true;el.onloadedmetadata=()=>push({id,type:'video',el,url,name:f.name,in:0,dur:el.duration,max:el.duration});el.src=url}}
+function push(c){S.clips.push(c);S.sel={k:'clip',id:c.id};all();if(LEFT+total()*S.pps>$('#tl').clientWidth)fit()}
+function media(){$('#media').innerHTML=S.clips.map(c=>`<div><span>${esc(c.name).slice(0,28)}</span><button data-del="${c.id}" aria-label="Remove">×</button></div>`).join('')}
+$('#media').onclick=e=>{const d=e.target.dataset.del;if(d){S.clips=S.clips.filter(c=>c.id!=d);S.sel=null;all()}};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+$('#addT').onclick=()=>{const t={id:++uid,text:'សួស្តី',start:+S.t.toFixed(1),dur:3,size:72,color:'#ffffff',y:82};S.texts.push(t);S.sel={k:'text',id:t.id};all()};
+$('#addV').onclick=()=>{const txt='សួស្តី សូមស្វាគមន៍មកកាន់វីដេអូរបស់ខ្ញុំ';const v={id:++uid,text:txt,start:+S.t.toFixed(1),rate:1,voice:'',cap:true};
+ S.voices.push(v);S.texts.push({id:++uid,text:txt,start:v.start,dur:+vd(v).toFixed(1),size:60,color:'#ffe08a',y:86,link:v.id});S.sel={k:'voice',id:v.id};all()};
+
+function say(v,q){if(!('speechSynthesis' in window))return;if(!q)speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(v.text);
+ const vo=S.vl.find(x=>x.voiceURI===v.voice)||km();if(vo)u.voice=vo;u.lang=vo?vo.lang:'km-KH';u.rate=v.rate;speechSynthesis.speak(u)}
+
+function inspect(){const it=get(),b=$('#ib');if(!it){b.innerHTML='<p class="note">Select a clip, text or voice on the timeline to edit it.</p>';return}
+ const k=S.sel.k,F=(l,key,type='number',extra='')=>`<label class="f">${l}<input data-k="${key}" type="${type}" value="${esc(it[key])}" ${extra}></label>`;
+ const T=(l,key)=>`<label class="f">${l}<textarea data-k="${key}" rows="3">${esc(it[key])}</textarea></label>`;
+ let h='';
+ if(k==='clip')h=`<p class="note">${esc(it.name)}</p>`+F('Start in source (s)','in','number','step="0.1" min="0"')+F('Length (s)','dur','number','step="0.1" min="0.1"')+`<div class="row"><button data-a="split">Split at playhead</button><button data-a="l">Move ←</button><button data-a="r">Move →</button></div>`;
+ if(k==='text')h=T('Text','text')+F('Start (s)','start','number','step="0.1" min="0"')+F('Length (s)','dur','number','step="0.1" min="0.1"')+F('Size','size','number','min="20" max="200"')+F('Height on screen (%)','y','number','min="5" max="95"')+F('Colour','color','color')+'<div class="row"><button data-a="tsay">Listen</button><button data-a="tvoice">Make voice</button></div>';
+ if(k==='audio')h=`<p class="note">${esc(it.name)}</p>`+F('Start (s)','start','number','step="0.1" min="0"')+F('Volume (0 to 1)','vol','number','step="0.1" min="0" max="1"');
+ if(k==='voice'){const kv=S.vl.filter(v=>/^km/i.test(v.lang)),ot=S.vl.filter(v=>!/^km/i.test(v.lang));
+  const op=a=>a.map(v=>`<option value="${esc(v.voiceURI)}" ${v.voiceURI===it.voice?'selected':''}>${esc(v.name)} (${esc(v.lang)})</option>`).join('');
+  h=T('Khmer text to speak','text')+F('Start (s)','start','number','step="0.1" min="0"')+F('Speed','rate','number','step="0.1" min="0.5" max="1.5"')+
+  `<label class="f">Voice<select data-k="voice"><option value="">Automatic (Khmer if available)</option>${kv.length?`<optgroup label="Khmer">${op(kv)}</optgroup>`:''}<optgroup label="Other languages">${op(ot)}</optgroup></select></label><div class="row"><button data-a="say">Listen</button></div>`}
+ b.innerHTML=h+`<div class="row" style="margin-top:6px"><button data-a="del">Delete</button></div>`}
+$('#ib').addEventListener('input',e=>{const it=get(),k=e.target.dataset.k;if(!it||!k)return;const n=e.target.type==='number';it[k]=n?parseFloat(e.target.value)||0:e.target.value;
+ if(S.sel.k==='clip'&&k==='dur'&&it.type==='video')it.dur=Math.min(it.dur,it.max-it.in);
+ if(S.sel.k==='voice'){const c=S.texts.find(t=>t.link===it.id);if(c&&(k==='text'||k==='start')){c[k]=it[k];c.dur=+vd(it).toFixed(1)}}
+ if(S.sel.k==='text'){const v=S.voices.find(x=>x.from===it.id);if(v&&(k==='text'||k==='start'||k==='dur')){v.text=it.text;v.start=it.start;if(k!=='start')v.rate=rateFor(it.text,it.dur)}}
+ timeline()});
+$('#ib').onclick=e=>{const a=e.target.dataset.a,it=get();if(!a||!it)return;
+ if(a==='say')say(it);if(a==='tsay')say({text:it.text,rate:rateFor(it.text,it.dur),voice:$('#gv').value});if(a==='tvoice'){const v=mkVoice(it);S.sel={k:'voice',id:v.id};all()}
+ if(a==='del'){const A=arr(S.sel.k);A.splice(A.indexOf(it),1);if(S.sel.k==='audio')it.el.pause();if(S.sel.k==='voice')S.texts=S.texts.filter(t=>t.link!==it.id);if(S.sel.k==='text')S.voices=S.voices.filter(v=>v.from!==it.id);S.sel=null;all()}
+ if(a==='l'||a==='r'){const i=S.clips.indexOf(it),j=i+(a==='l'?-1:1);if(S.clips[j]){[S.clips[i],S.clips[j]]=[S.clips[j],S.clips[i]];all()}}
+ if(a==='split'){const o=S.t-it.start;if(o>0.1&&o<it.dur-0.1){const n={...it,id:++uid,in:it.in+o,dur:it.dur-o};it.dur=o;S.clips.splice(S.clips.indexOf(it)+1,0,n);S.sel={k:'clip',id:n.id};all()}}}
+
+function timeline(){layout();const T=total(),W=LEFT+T*S.pps+80;let h=`<div class="ruler" style="width:${W}px">`;
+ const stp=[1,2,5,10,30,60,120,300,600,1800,3600].find(x=>x*S.pps>=70)||3600;for(let i=0;i<=T;i+=stp)h+=`<i style="left:${LEFT+i*S.pps}px">${fmt(i)}</i>`;h+='</div>';
+ const blk=(k,x,l,w,label)=>`<div class="blk ${k} ${S.sel&&S.sel.k===k&&S.sel.id===x.id?'sel':''}" tabindex="0" data-k="${k}" data-id="${x.id}" style="left:${l}px;width:${Math.max(24,w)}px">${esc(label)}</div>`;
+ const tr=(n,c)=>`<div class="track" style="width:${W}px"><b>${n}</b>${c}</div>`;
+ h+=tr('Video',S.clips.map(c=>blk('clip',c,LEFT+c.start*S.pps,c.dur*S.pps,c.name)).join(''))+
+    tr('Text',S.texts.map(t=>blk('text',t,LEFT+t.start*S.pps,t.dur*S.pps,t.text)).join(''))+
+    tr('Voice',S.voices.map(v=>blk('voice',v,LEFT+v.start*S.pps,vd(v)*S.pps,'🔊 '+v.text)).join(''))+tr('Audio',S.aud.map(a=>blk('audio',a,LEFT+a.start*S.pps,a.dur*S.pps,'♪ '+a.name)).join(''))+'<div id="ph"></div>';
+ $('#tli').innerHTML=h;$('#tli').style.width=W+'px';$('#time').textContent=fmt(S.t)+' / '+fmt(total())}
+const tli=$('#tli');let drag=null;
+tli.addEventListener('pointerdown',e=>{const b=e.target.closest('.blk');
+ if(b){S.sel={k:b.dataset.k,id:+b.dataset.id};const it=get();inspect();if($('#spk')&&$('#spk').checked&&(S.sel.k==='voice'||(S.sel.k==='text'&&isSub(it))))say({text:it.text,rate:S.sel.k==='voice'?it.rate:rateFor(it.text,it.dur),voice:S.sel.k==='voice'?it.voice:$('#gv').value});[...tli.querySelectorAll('.blk')].forEach(x=>x.classList.toggle('sel',x===b));
+  if(S.sel.k!=='clip'){drag={it,b,x:e.clientX,s:it.start};tli.setPointerCapture(e.pointerId)}return}
+ seek((e.clientX-tli.getBoundingClientRect().left-LEFT)/S.pps)});
+tli.addEventListener('pointermove',e=>{if(!drag)return;drag.it.start=Math.max(0,+(drag.s+(e.clientX-drag.x)/S.pps).toFixed(1));drag.b.style.left=LEFT+drag.it.start*S.pps+'px'});
+tli.addEventListener('pointerup',()=>{if(drag){const it=drag.it;drag=null;if(S.sel.k==='voice'){const c=S.texts.find(t=>t.link===it.id);if(c)c.start=it.start}if(S.sel.k==='text'){const v=S.voices.find(x=>x.from===it.id);if(v)v.start=it.start}all()}});
+tli.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.dataset.k){S.sel={k:e.target.dataset.k,id:+e.target.dataset.id};inspect()}});
+const isSub=t=>t.sub||t.link;
+const tm=s=>{const m=s.trim().match(/(?:(\d+):)?(\d+):(\d+)[,.](\d+)/);return m?(+(m[1]||0))*3600+ +m[2]*60+ +m[3]+ +('0.'+m[4]):NaN};
+function parseSub(txt){const out=[];txt.replace(/^\uFEFF/,'').replace(/\r/g,'').split(/\n\s*\n/).forEach(b=>{const L=b.split('\n'),i=L.findIndex(l=>l.includes('-->'));if(i<0)return;
+ const [a,z]=L[i].split('-->'),s=tm(a),e=tm(z||'');const t=L.slice(i+1).join('\n').replace(/<[^>]+>/g,'').trim();
+ if(!isNaN(s)&&!isNaN(e)&&e>s&&t)out.push({start:+s.toFixed(2),dur:+(e-s).toFixed(2),text:t})});return out}
+const sv=k=>parseFloat($('#sst [data-s='+k+']').value)||0;
+$('#srt').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
+ const cues=parseSub(await f.text());if(!cues.length){$('#sstat').textContent='No subtitles found. Check that the file is a valid .srt or .vtt.';return}
+ const col=$('#sst [data-s=color]').value;cues.forEach(c=>S.texts.push({id:++uid,text:c.text,start:c.start,dur:c.dur,size:sv('size')||56,color:col,y:sv('y')||88,sub:true}));
+ $('#sstat').textContent='Imported '+cues.length+' subtitles from '+f.name+'.';S.sel=null;all()};
+$('label[for=srt]').onkeydown=e=>{if(e.key==='Enter')$('#srt').click()};
+const ts=s=>{const ms=Math.round(s*1000),p=(n,l=2)=>String(n).padStart(l,'0');return p(Math.floor(ms/36e5))+':'+p(Math.floor(ms/6e4)%60)+':'+p(Math.floor(ms/1e3)%60)+','+p(ms%1000,3)};
+$('#srtx').onclick=()=>{const L=S.texts.filter(t=>isSub(t)&&t.text.trim()).sort((a,b)=>a.start-b.start);
+ if(!L.length){$('#sstat').textContent='Nothing to export yet. Import an .srt or add a Khmer voice + caption first.';return}
+ const out=L.map((t,i)=>(i+1)+'\n'+ts(t.start)+' --> '+ts(t.start+t.dur)+'\n'+t.text.trim()+'\n').join('\n');
+ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([out],{type:'text/plain;charset=utf-8'}));a.download='subtitles.srt';a.click();$('#sstat').textContent='Exported '+L.length+' subtitles.'};
+$('#srtc').onclick=()=>{const n=S.texts.filter(isSub).length;S.texts=S.texts.filter(t=>!isSub(t));S.voices=S.voices.filter(v=>!v.from);S.voices.forEach(v=>v.cap=false);S.sel=null;$('#sstat').textContent='Removed '+n+' subtitles.';all()};
+$('#sst').addEventListener('input',e=>{const k=e.target.dataset.s;if(!k)return;const v=k==='color'?e.target.value:parseFloat(e.target.value);if(k!=='color'&&!v)return;S.texts.forEach(t=>{if(isSub(t))t[k]=v});if(S.sel&&S.sel.k==='text')inspect()});
+const zoom=f=>{const c=$('#tl'),mid=(c.scrollLeft+c.clientWidth/2-LEFT)/S.pps;S.pps=Math.min(200,Math.max(.02,S.pps*f));timeline();c.scrollLeft=LEFT+mid*S.pps-c.clientWidth/2};
+const fit=()=>{S.pps=Math.max(.02,Math.min(200,($('#tl').clientWidth-LEFT-90)/total()));timeline();$('#tl').scrollLeft=0};
+$('#zi').onclick=()=>zoom(1.6);$('#zo').onclick=()=>zoom(1/1.6);$('#zf').onclick=fit;
+$('#tl').addEventListener('wheel',e=>{if(e.ctrlKey||e.metaKey){e.preventDefault();zoom(e.deltaY<0?1.2:1/1.2)}},{passive:false});
+const rateFor=(txt,dur)=>Math.min(1.6,Math.max(.8,Math.round([...txt].length/(12*Math.max(.3,dur))*10)/10));
+function mkVoice(t){let v=S.voices.find(x=>x.from===t.id);if(v){v.text=t.text;v.start=t.start;v.rate=rateFor(t.text,t.dur);return v}
+ v={id:++uid,text:t.text,start:t.start,rate:rateFor(t.text,t.dur),voice:$('#gv').value,from:t.id};S.voices.push(v);return v}
+function fillGv(){const g=$('#gv');if(!g)return;const cur=g.value;g.innerHTML='';const add=(l,v)=>{const o=document.createElement('option');o.value=v;o.textContent=l;g.appendChild(o)};
+ add('Automatic (Sreymom or any Khmer voice)','');S.vl.slice().sort((a,b)=>(/sreymom/i.test(b.name)-/sreymom/i.test(a.name))||(/^km/i.test(b.lang)-/^km/i.test(a.lang))).forEach(v=>add(v.name+' ('+v.lang+')',v.voiceURI));g.value=cur}
+$('#gv').onchange=e=>{S.voices.forEach(v=>v.voice=e.target.value);inspect()};
+$('#vall').onclick=()=>{const L=S.texts.filter(t=>t.sub&&!t.link&&t.text.trim());if(!L.length){$('#sstat').textContent='No subtitles yet. Import an .srt file or add text first.';return}
+ L.forEach(mkVoice);S.sel=null;$('#sstat').textContent='Made '+L.length+' Khmer voices, one for each subtitle. Press Play to hear them.';all()};
+$('#vclr').onclick=()=>{S.aud.filter(a=>a.from).forEach(a=>a.el.pause());S.aud=S.aud.filter(a=>!a.from);const n=S.voices.filter(v=>v.from).length;S.voices=S.voices.filter(v=>!v.from);S.sel=null;$('#sstat').textContent='Removed '+n+' voices made from subtitles.';all()};
+fillGv();
+$('#aud').onchange=e=>{[...e.target.files].forEach(f=>{const url=URL.createObjectURL(f),el=new Audio();el.preload='metadata';el.onloadedmetadata=()=>{const a={id:++uid,name:f.name,el,url,start:+S.t.toFixed(1),dur:el.duration,vol:1};S.aud.push(a);S.sel={k:'audio',id:a.id};all()};el.src=url});e.target.value=''};
+$('label[for=aud]').onkeydown=e=>{if(e.key==='Enter')$('#aud').click()};
+function syncAud(){S.aud.forEach(a=>{const lt=S.t-a.start,on=lt>=0&&lt<a.dur;a.el.volume=Math.min(1,Math.max(0,a.vol));
+ if(S.playing&&on){if(Math.abs(a.el.currentTime-lt)>.4)a.el.currentTime=lt;if(a.el.paused)a.el.play().catch(()=>{})}else if(!a.el.paused)a.el.pause()})}
+$('#vaz').onclick=async()=>{const V=S.voices.filter(v=>!v.az&&v.text.trim());
+ if(!V.length){$('#sstat').textContent='No new voices. Use "Make Khmer voice for all subtitles" first.';return}
+ let up=false,need=false;try{const h=await(await fetch('/api/health')).json();up=h.ok;need=h.need}catch(e){}
+ if(!up){$('#sstat').textContent='Azure is not connected. Run this app with server.js and set your Azure key (see README.md).';return}
+ let pw='';try{pw=localStorage.getItem('kc_pass')||''}catch(e){}
+ if(need&&!pw){pw=prompt('Enter the app password you set on the server')||'';try{localStorage.setItem('kc_pass',pw)}catch(e){}}
+ let n=0,done=true;
+ for(const v of V){$('#sstat').textContent='Generating Sreymom voice '+(++n)+' / '+V.length+'...';
+  try{const r=await fetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json','x-pass':pw},body:JSON.stringify({text:v.text,rate:v.rate})});
+   if(!r.ok)throw new Error(await r.text());
+   const url=URL.createObjectURL(await r.blob()),el=new Audio();
+   await new Promise((res,rej)=>{el.onloadedmetadata=res;el.onerror=rej;el.src=url});
+   S.aud.push({id:++uid,name:'Sreymom: '+v.text.slice(0,20),el,url,start:v.start,dur:el.duration,vol:1,from:v.id});v.az=true}
+  catch(e){if(/401/.test(e.message))try{localStorage.removeItem('kc_pass')}catch(x){}$('#sstat').textContent='Azure error: '+e.message;done=false;break}}
+ if(done)$('#sstat').textContent='Done. Sreymom voice is on the Audio track and will be in the exported video.';all()};
+function all(){media();timeline();inspect()}
+
+function seek(t){S.t=Math.max(0,Math.min(total(),t));spoken.clear();if('speechSynthesis' in window)speechSynthesis.cancel();S.clips.forEach(c=>c.type==='video'&&c.el.pause())}
+const spoken=new Set();
+function play(){if(S.t>=total()-.05)seek(0);S.playing=true;$('#pl').textContent='Pause'}
+function pause(){S.playing=false;$('#pl').textContent='Play';S.clips.forEach(c=>c.type==='video'&&c.el.pause());if('speechSynthesis' in window)speechSynthesis.cancel()}
+$('#pl').onclick=()=>S.playing?pause():play();$('#rs').onclick=()=>{pause();seek(0)};
+$('#ar').onclick=()=>{const v=cv.width>cv.height;cv.width=v?720:1280;cv.height=v?1280:720;$('#ar').textContent=v?'9:16':'16:9'};
+addEventListener('keydown',e=>{if(e.code==='Space'&&!/INPUT|TEXTAREA|SELECT|BUTTON/.test(e.target.tagName)){e.preventDefault();$('#pl').click()}});
+
+function cover(el){const w=el.videoWidth||el.naturalWidth,h=el.videoHeight||el.naturalHeight;if(!w)return;const s=Math.max(cv.width/w,cv.height/h);cx.drawImage(el,(cv.width-w*s)/2,(cv.height-h*s)/2,w*s,h*s)}
+function wrap(txt,max){const out=[];for(const p of txt.split('\n')){let line='';for(const g of (seg?[...seg.segment(p)].map(x=>x.segment):[...p])){if(cx.measureText(line+g).width>max&&line){out.push(line);line=g.trim()?g:''}else line+=g}out.push(line)}return out}
+function draw(){cx.fillStyle='#000';cx.fillRect(0,0,cv.width,cv.height);
+ const c=S.clips.find(c=>S.t>=c.start&&S.t<c.start+c.dur)||(S.clips.length&&S.t>=total()-.01?S.clips[S.clips.length-1]:null);
+ S.clips.forEach(o=>{if(o.type==='video'&&o!==c&&!o.el.paused)o.el.pause()});
+ if(c){if(c.type==='video'){const lt=c.in+S.t-c.start;if(!S.playing){if(Math.abs(c.el.currentTime-lt)>.05)c.el.currentTime=lt}else{if(Math.abs(c.el.currentTime-lt)>.4)c.el.currentTime=lt;if(c.el.paused)c.el.play().catch(()=>{})}}cover(c.el)}
+ else if(!S.clips.length){cx.fillStyle='#4a6761';cx.font='600 '+cv.width/32+'px "Noto Sans Khmer",system-ui,sans-serif';cx.textAlign='center';cx.fillText('Import a video or photo, or add text to begin',cv.width/2,cv.height/2)}
+ S.texts.forEach(t=>{if(S.t<t.start||S.t>=t.start+t.dur||!t.text)return;const s=t.size*cv.width/1280;cx.font=`800 ${s}px "Noto Sans Khmer",system-ui,sans-serif`;cx.textAlign='center';cx.textBaseline='middle';
+  const L=wrap(t.text,cv.width*.86),lh=s*1.5,y0=cv.height*t.y/100-(L.length-1)*lh/2;cx.lineJoin='round';cx.lineWidth=s/5;cx.strokeStyle='rgba(0,0,0,.85)';cx.fillStyle=t.color;
+  L.forEach((l,i)=>{cx.strokeText(l,cv.width/2,y0+i*lh);cx.fillText(l,cv.width/2,y0+i*lh)})})}
+
+let last=performance.now();
+function tick(ts){const dt=Math.min(.1,(ts-last)/1000);last=ts;
+ if(S.playing){S.t+=dt;S.voices.forEach(v=>{if(!spoken.has(v.id)&&!v.az&&S.t>=v.start&&S.t<v.start+1){spoken.add(v.id);say(v,true)}});
+  if(S.t>=total()){S.t=total();pause();if(rec)rec.stop()}}
+ draw();syncAud();const ph=$('#ph');if(ph){const x=LEFT+S.t*S.pps;ph.style.left=x+'px';if(S.playing){const c=$('#tl');if(x>c.scrollLeft+c.clientWidth-40||x<c.scrollLeft)c.scrollLeft=x-60}}$('#time').textContent=fmt(S.t)+' / '+fmt(total());
+ if(rec)$('#exp').textContent='Stop export ('+Math.round(S.t/total()*100)+'%)';requestAnimationFrame(tick)}
+
+$('#exp').onclick=()=>{if(rec){pause();rec.stop();return}if(total()>300&&!confirm('Export records in real time, so this '+fmt(total())+' project takes about '+fmt(total())+' to export. Keep this tab open and in front until it finishes. You can click Stop export to save what is done so far. Continue?'))return;if(!window.MediaRecorder){alert('This browser cannot export video. Try Chrome, Edge or Safari 14.1+.');return}
+ pause();seek(0);
+ if(!actx){actx=new(window.AudioContext||window.webkitAudioContext)();adest=actx.createMediaStreamDestination()}
+ S.clips.forEach(c=>{if(c.type==='video'&&!c.node){c.node=actx.createMediaElementSource(c.el);c.node.connect(adest);c.node.connect(actx.destination)}});
+ S.aud.forEach(a=>{if(!a.node){a.node=actx.createMediaElementSource(a.el);a.node.connect(adest);a.node.connect(actx.destination)}});actx.resume();const st=cv.captureStream(30);adest.stream.getAudioTracks().forEach(t=>st.addTrack(t));
+ const mt=['video/mp4','video/webm;codecs=vp9,opus','video/webm'].find(m=>MediaRecorder.isTypeSupported(m))||'';
+ const ch=[];rec=new MediaRecorder(st,mt?{mimeType:mt,videoBitsPerSecond:total()>1800?1.5e6:total()>600?3e6:6e6}:{});
+ rec.ondataavailable=e=>e.data.size&&ch.push(e.data);
+ rec.onstop=()=>{const b=new Blob(ch,{type:rec.mimeType}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='khmer-cut.'+(rec.mimeType.includes('mp4')?'mp4':'webm');a.click();rec=null;$('#exp').textContent='Export video'};
+ rec.start();play()};
+all();requestAnimationFrame(tick);if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
+</script></body></html>
